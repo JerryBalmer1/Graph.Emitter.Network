@@ -9,13 +9,16 @@ function ConvertFrom-NetworkGraphNslookupOutput {
         [Parameter(Mandatory)]
         [AllowEmptyString()]
         [string]
-        $Text
+        $Text,
+
+        [int]
+        $ExitCode = 0
     )
 
     $server = $null
     $name = $null
     $collecting = $false
-    foreach ($line in $Text -split "`r?`n") {
+    $rows = @(foreach ($line in $Text -split "`r?`n") {
         if ($line -match '^Server:\s+(\S+)') { $server = $Matches[1]; continue }
         if ($line -match '^Name:\s+(\S+)') { $name = $Matches[1].TrimEnd('.'); $collecting = $false; continue }
         if (-not $name) { continue }
@@ -33,5 +36,7 @@ function ConvertFrom-NetworkGraphNslookupOutput {
             Section = 'Answer'
             Server  = $server
         }
-    }
+    })
+    Assert-NetworkGraphRecognised -Tool nslookup -Text $Text -ExitCode $ExitCode -Count $rows.Count -Recognised:($Text -match "can't find|No answer")
+    $rows
 }

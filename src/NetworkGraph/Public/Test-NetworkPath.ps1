@@ -4,8 +4,11 @@ function Test-NetworkPath {
         Tests ICMP reachability of a host: sent, received, loss and round-trip times.
 
     .DESCRIPTION
-        Native: ping (ping.exe -n -w on Windows, ping -c -W on Linux), parsed from its text output
-        (English only). The .NET floor sends ICMP echoes with System.Net.NetworkInformation.Ping,
+        Auto: the .NET path on Windows, ping on Linux. Native: ping (ping.exe -n -w on Windows,
+        ping -c -W on Linux), parsed from its text output (English; on Linux it runs with
+        LC_ALL=C, and output the parser cannot read is an error naming -Tool DotNet). On Windows,
+        ping.exe follows the display language, and System.Net.NetworkInformation.Ping uses the
+        same ICMP API, so Auto takes the .NET path there. The .NET floor sends ICMP echoes with System.Net.NetworkInformation.Ping,
         the same API Test-Connection uses. ICMP is often filtered: Reachable $false means no echo
         reply, not that the host is down; use Test-NetworkPort for a TCP check.
 
@@ -21,7 +24,7 @@ function Test-NetworkPath {
         up).
 
     .PARAMETER Tool
-        Auto (native when installed, else .NET), Native, or DotNet.
+        Auto (Windows: .NET; Linux: ping when installed, else .NET), Native, or DotNet.
 
     .EXAMPLE
         Test-NetworkPath 1.1.1.1 -Count 2
@@ -51,13 +54,23 @@ function Test-NetworkPath {
         $Tool = 'Auto'
     )
 
-    begin { $chosen = Resolve-NetworkGraphTool -Tool $Tool -Candidate @('ping') -CommandName 'Test-NetworkPath' }
+    begin {
+        # On Windows, Auto is the .NET path: System.Net.NetworkInformation.Ping calls the same ICMP
+        # API as ping.exe (IcmpSendEcho2), and ping.exe prints in the Windows display language,
+        # which the English parser cannot read. -Tool Native still runs ping.exe.
+        $chosen = ($Tool -eq 'Auto' -and $IsWindows) ? 'DotNet' : (Resolve-NetworkGraphTool -Tool $Tool -Candidate @('ping') -CommandName 'Test-NetworkPath')
+    }
     process {
         foreach ($item in $Target) {
             if ($chosen -eq 'ping') {
                 $arguments = $IsWindows ? @('-n', "$Count", '-w', "$Timeout", $item) : @('-c', "$Count", '-W', "$([math]::Ceiling($Timeout / 1000))", $item)
-                $run = Invoke-NetworkGraphNative -FilePath ping -ArgumentList $arguments -TimeoutSec ([math]::Ceiling($Count * ($Timeout / 1000 + 1)) + 10)
-                $parsed = ConvertFrom-NetworkGraphPingOutput -Text $run.Output
+                # Exit 1 is "no reply", an answer; anything else (2: unknown host, bad option) is
+                # an error for this target only, as is output the parser does not recognise.
+                try {
+                    $run = Invoke-NetworkGraphNative -FilePath ping -ArgumentList $arguments -TimeoutSec ([math]::Ceiling($Count * ($Timeout / 1000 + 1)) + 10) -OkExitCodes 0, 1
+                    $parsed = ConvertFrom-NetworkGraphPingOutput -Text $run.Output -ExitCode $run.ExitCode
+                }
+                catch { Write-Error -Message $_.Exception.Message -ErrorId 'NativeToolFailed' -Category InvalidResult -TargetObject $item; continue }
                 $sent = $parsed.Sent ?? $Count
                 $ip = $parsed.Ip
                 $rtts = $parsed.RttMs
@@ -77,7 +90,7 @@ function Test-NetworkPath {
                 finally { $ping.Dispose() }
                 $sent = $Count
                 $rtts = $rtts.ToArray()
-                $source = "[System.Net.NetworkInformation.Ping]::new().Send('$item', $Timeout) x $Count"
+                $source = "[System.Net.NetworkInformation.Ping]::new() | ForEach-Object { foreach (`$i in 1..$Count) { `$_.Send('$item', $Timeout) } }"
             }
             $received = @($rtts).Count
             [pscustomobject]@{

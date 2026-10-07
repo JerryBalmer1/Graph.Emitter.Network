@@ -8,10 +8,13 @@ function ConvertFrom-NetworkGraphSsOutput {
         [Parameter(Mandatory)]
         [AllowEmptyString()]
         [string]
-        $Text
+        $Text,
+
+        [int]
+        $ExitCode = 0
     )
 
-    foreach ($line in $Text -split "`r?`n") {
+    $rows = @(foreach ($line in $Text -split "`r?`n") {
         $tokens = @($line -split '\s+' | Where-Object { $_ })
         if ($tokens.Count -lt 6 -or $tokens[0] -notin 'tcp', 'udp') { continue }
         $local = Split-NetworkGraphEndpoint -Endpoint $tokens[4]
@@ -22,5 +25,7 @@ function ConvertFrom-NetworkGraphSsOutput {
         if ($rest -match 'users:\(\("([^"]*)",pid=(\d+)') { $processName = $Matches[1]; $processId = $Matches[2] }
         New-NetworkGraphConnectionRow -Protocol ($tokens[0] -eq 'tcp' ? 'Tcp' : 'Udp') -LocalIp $local.Ip -LocalPort $local.Port `
             -RemoteIp $peer.Ip -RemotePort $peer.Port -State (ConvertTo-NetworkGraphTcpState -State $tokens[1]) -ProcessId $processId -ProcessName $processName
-    }
+    })
+    Assert-NetworkGraphRecognised -Tool ss -Text $Text -ExitCode $ExitCode -Count $rows.Count -Recognised:($Text -match '(?m)^Netid\s')
+    $rows
 }

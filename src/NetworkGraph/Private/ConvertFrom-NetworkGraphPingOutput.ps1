@@ -8,7 +8,10 @@ function ConvertFrom-NetworkGraphPingOutput {
         [Parameter(Mandatory)]
         [AllowEmptyString()]
         [string]
-        $Text
+        $Text,
+
+        [int]
+        $ExitCode = 0
     )
 
     $ip = $null
@@ -23,6 +26,7 @@ function ConvertFrom-NetworkGraphPingOutput {
         elseif ($line -match '^(\d+) packets transmitted') { $sent = [int]$Matches[1] }
     }
 
+    Assert-NetworkGraphRecognised -Tool ping -Text $Text -ExitCode $ExitCode -Count (($null -ne $sent -or $rtts.Count) ? 1 : 0)
     [pscustomobject]@{
         Ip       = $ip
         Sent     = $sent

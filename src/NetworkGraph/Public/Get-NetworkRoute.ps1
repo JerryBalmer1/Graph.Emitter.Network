@@ -45,17 +45,17 @@ function Get-NetworkRoute {
         }
         'ip' {
             if ('IPv4' -in $AddressFamily) {
-                $run = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'route', 'show', 'table', 'main'
+                $run = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'route', 'show', 'table', 'main' -OkExitCodes 0
                 foreach ($row in ConvertFrom-NetworkGraphIpRouteJson -Text $run.Output -Version 4) { $row | Add-Member Source $run.CommandLine -PassThru }
             }
             if ('IPv6' -in $AddressFamily) {
-                $run = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', '-6', 'route', 'show', 'table', 'main'
+                $run = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', '-6', 'route', 'show', 'table', 'main' -OkExitCodes 0
                 foreach ($row in ConvertFrom-NetworkGraphIpRouteJson -Text $run.Output -Version 6) { $row | Add-Member Source $run.CommandLine -PassThru }
             }
         }
         'DotNet' {
             foreach ($row in Get-NetworkGraphDotNetRoute) {
-                $row | Add-Member Source '[NetworkInterface]::GetAllNetworkInterfaces() (.NET floor: routes derived from addresses and gateways, no route table)' -PassThru
+                $row | Add-Member Source '[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | ForEach-Object { $_.GetIPProperties() }  # .NET floor: routes derived from addresses and gateways, no route table' -PassThru
             }
         }
     }

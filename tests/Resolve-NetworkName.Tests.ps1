@@ -20,7 +20,7 @@ Describe 'Resolve-NetworkName' {
         It 'reads Windows nslookup, addresses on continuation lines' {
             $rows = ConvertText 'ConvertFrom-NetworkGraphNslookupOutput' 'nslookup.windows.txt'
             $rows.Data | Should -Be @('172.66.147.243', '104.20.23.154')
-            $rows.Server | Select-Object -Unique | Should -Be 'doh.cox.net'
+            $rows.Server | Select-Object -Unique | Should -Be 'dns.example.net'
             $rows.Name | Select-Object -Unique | Should -Be 'example.com'
         }
 

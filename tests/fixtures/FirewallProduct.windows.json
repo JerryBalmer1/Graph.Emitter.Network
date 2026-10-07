@@ -1,0 +1,10 @@
+[
+  {
+    "displayName": "Norton Security",
+    "instanceGuid": "{A6045214-8EAD-7B9C-2E68-BA2B11C858F1}",
+    "pathToSignedProductExe": "C:\\Program Files\\Norton Security\\Engine\\22.21.5.44\\WSCStub.exe",
+    "pathToSignedReportingExe": "C:\\Program Files\\Norton Security\\Engine\\22.21.5.44\\WSCStub.exe",
+    "productState": 331776,
+    "timestamp": "Sun, 17 Oct 2021 12:10:45 GMT"
+  }
+]

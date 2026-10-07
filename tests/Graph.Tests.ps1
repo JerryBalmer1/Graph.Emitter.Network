@@ -87,3 +87,168 @@ Describe 'Graph contract (docs/graph-shape.md)' {
         }
     }
 }
+
+Describe 'Every Source is pasteable' {
+    BeforeAll {
+        $script:Checked = [System.Collections.Generic.List[object]]::new()
+        function Add-Source([string]$From, $Rows) {
+            foreach ($row in @($Rows)) {
+                if ($null -eq $row) { continue }
+                foreach ($name in 'Source', 'RdapSource') {
+                    if ($row.PSObject.Properties[$name] -and $row.$name) { $Checked.Add([pscustomobject]@{ From = "$From.$name"; Source = [string]$row.$name }) }
+                }
+                if ($row.PSObject.Properties['Answers']) { Add-Source "$From.Answers" $row.Answers }
+            }
+        }
+        # The native tools the module wraps: every -FilePath given to Invoke-NetworkGraphNative.
+        $script:Tools = @(foreach ($file in Get-ChildItem -Path $ModuleRoot -Recurse -Filter '*.ps1') {
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+                foreach ($call in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-NetworkGraphNative' }, $true)) {
+                    $elements = @($call.CommandElements)
+                    for ($i = 0; $i -lt $elements.Count - 1; $i++) {
+                        if ($elements[$i] -is [System.Management.Automation.Language.CommandParameterAst] -and $elements[$i].ParameterName -eq 'FilePath') { $elements[$i + 1].Value }
+                    }
+                }
+            }) | Select-Object -Unique
+
+        # Native tools through the seam, each with its own fixture.
+        Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { $script:NextTool }
+        $ip = {
+            param($Arguments)
+            if ($Arguments -contains 'neigh') { Get-Fixture 'ip-neigh.linux.json' }
+            elseif ($Arguments -contains 'addr') { Get-Fixture 'ip-addr.linux.json' }
+            elseif ($Arguments -contains '-6') { Get-Fixture 'ip-route6.linux.json' }
+            else { Get-Fixture 'ip-route.linux.json' }
+        }
+        Set-NativeFixture -Output @{
+            ping       = $IsWindows ? (Get-Fixture 'ping.windows.txt') : (Get-Fixture 'ping.linux.txt')
+            tracert    = Get-Fixture 'tracert.windows.txt'
+            pathping   = Get-Fixture 'pathping.windows.txt'
+            mtr        = Get-Fixture 'mtr.linux.json'
+            traceroute = Get-Fixture 'traceroute.linux.txt'
+            nc         = Get-Fixture 'nc.linux.txt'
+            ss         = Get-Fixture 'ss.linux.txt'
+            ip         = $ip
+            arp        = Get-Fixture 'arp.windows.txt'
+            dig        = Get-Fixture 'dig.linux.txt'
+            nslookup   = Get-Fixture 'nslookup.linux.txt'
+            nmap       = Get-Fixture 'nmap.linux.xml'
+            curl       = { param($Arguments) ($Arguments[-1] -like '*ipify*') ? '{"ip":"203.0.113.7"}' : '203.0.113.7' }
+        }
+        $native = [ordered]@{
+            'ping'       = { Test-NetworkPath 1.1.1.1 -Count 3 -Tool Native }
+            'tracert'    = { Trace-NetworkPath 1.1.1.1 -MaxHops 12 -Tool Native -NativeTool tracert }
+            'pathping'   = { Trace-NetworkPath 1.1.1.1 -MaxHops 8 -Tool Native -NativeTool pathping }
+            'mtr'        = { Trace-NetworkPath 1.1.1.1 -MaxHops 12 -Tool Native -NativeTool mtr }
+            'traceroute' = { Trace-NetworkPath 1.1.1.1 -MaxHops 12 -Tool Native -NativeTool traceroute }
+            'nc'         = { Test-NetworkPort 1.1.1.1 -Port 443 -Tool Native }
+            'ss'         = { Get-NetworkConnection -Tool Native }
+            'ip route'   = { Get-NetworkRoute -Tool Native }
+            'ip neigh'   = { Get-NetworkNeighbor -Tool Native }
+            'ip addr'    = { Get-NetworkInterface -Tool Native }
+            'arp'        = { Get-NetworkNeighbor -Tool Native }
+            'dig'        = { Resolve-NetworkName example.com -Tool Native }
+            'nslookup'   = { Resolve-NetworkName example.com -Tool Native }
+            'curl'       = { Get-ExternalIpAddress -Tool Native }
+            'nmap'       = { Invoke-NetworkScan 1.1.1.1 -Port 443 -Tool Native }
+        }
+        foreach ($key in $native.Keys) {
+            $script:NextTool = ($key -split ' ')[0]
+            Add-Source $key (& $native[$key])
+        }
+        $nativeRows = @(foreach ($key in 'ss', 'ip route', 'ip addr', 'tracert', 'nmap') { $script:NextTool = ($key -split ' ')[0]; & $native[$key] })
+
+        # Get-NetworkHost on the Linux path: ufw.conf read without root, ip for interfaces and routes.
+        $conf = Join-Path $TestDrive 'ufw.conf'
+        Set-Content -LiteralPath $conf -Value (Get-Fixture 'ufw.conf.linux.txt') -NoNewline
+        InModuleScope NetworkGraph -Parameters @{ Conf = $conf } { param($Conf) $script:NetworkGraphPlatform = 'Linux'; $script:NetworkGraphUfwConfPath = $Conf }
+        $script:NextTool = 'ip'
+        $hostRow = Get-NetworkHost -Tool Native
+        Add-Source 'Get-NetworkHost (Linux)' $hostRow
+        InModuleScope NetworkGraph { $script:NetworkGraphPlatform = $IsWindows ? 'Windows' : ($IsLinux ? 'Linux' : 'macOS'); $script:NetworkGraphUfwConfPath = '/etc/ufw/ufw.conf' }
+
+        # Windows cmdlets, replaced by their fixtures (they exist only on Windows).
+        if ($IsWindows) {
+            Mock Get-NetTCPConnection -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetTCPConnection.windows.json' }
+            Mock Get-NetUDPEndpoint -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetUDPEndpoint.windows.json' }
+            Mock Get-NetRoute -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetRoute.windows.json' }
+            Mock Get-NetNeighbor -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetNeighbor.windows.json' }
+            Mock Get-NetworkGraphNetIPConfiguration -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetIPConfiguration.windows.json' }
+            Mock Resolve-DnsName -ModuleName NetworkGraph { Get-FixtureJson 'Resolve-DnsName.windows.json' }
+            Mock Test-NetConnection -ModuleName NetworkGraph { (Get-FixtureJson 'Test-NetConnection.windows.json')[0] }
+            Mock Get-NetFirewallProfile -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetFirewallProfile.windows.json' }
+            Mock Get-NetworkGraphFirewallProduct -ModuleName NetworkGraph { Get-FixtureJson 'FirewallProduct.windows.json' }
+            $cmdlets = [ordered]@{
+                'Get-NetTCPConnection'   = { Get-NetworkConnection -Tool Native }
+                'Get-NetRoute'           = { Get-NetworkRoute -Tool Native }
+                'Get-NetNeighbor'        = { Get-NetworkNeighbor -Tool Native }
+                'Get-NetIPConfiguration' = { Get-NetworkInterface -Tool Native }
+                'Resolve-DnsName'        = { Resolve-NetworkName example.com -Tool Native }
+                'Test-NetConnection'     = { Test-NetworkPort 1.1.1.1 -Port 443 -Tool Native }
+            }
+            foreach ($key in $cmdlets.Keys) {
+                $script:NextTool = $key
+                Add-Source $key (& $cmdlets[$key])
+            }
+            $script:NextTool = 'Get-NetIPConfiguration'
+            Add-Source 'Get-NetworkHost (Windows)' (Get-NetworkHost -Tool Native)
+        }
+        Clear-NativeFixture
+
+        # .NET floors: in-process reads and loopback only; nothing leaves the host.
+        $script:NextTool = 'DotNet'
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        try {
+            $port = $listener.LocalEndpoint.Port
+            Add-Source 'Test-NetworkPort DotNet Tcp' (Test-NetworkPort 127.0.0.1 -Port $port -Tool DotNet)
+            Add-Source 'Test-NetworkPort DotNet Udp' (Test-NetworkPort 127.0.0.1 -Port $port -Protocol Udp -Timeout 300 -Tool DotNet)
+            Add-Source 'Invoke-NetworkScan DotNet' (Invoke-NetworkScan 127.0.0.1 -Port $port -Timeout 500 -Tool DotNet)
+        }
+        finally { $listener.Stop() }
+        Add-Source 'Get-NetworkConnection DotNet' (Get-NetworkConnection -Tool DotNet | Group-Object Source | ForEach-Object { $_.Group[0] })
+        Add-Source 'Get-NetworkRoute DotNet' (Get-NetworkRoute -Tool DotNet | Select-Object -First 1)
+        Add-Source 'Get-NetworkInterface DotNet' (Get-NetworkInterface -Tool DotNet | Select-Object -First 1)
+        Add-Source 'Resolve-NetworkName DotNet' (Resolve-NetworkName localhost -Type A -Tool DotNet)
+        Mock Get-NetworkGraphDotNetTrace -ModuleName NetworkGraph { [pscustomobject]@{ Hop = 1; Ip = '127.0.0.1'; Host = $null; RttMs = @(0.1); AvgMs = 0.1; LossPercent = 0; Responded = $true } }
+        Add-Source 'Trace-NetworkPath DotNet' (Trace-NetworkPath 127.0.0.1 -MaxHops 3 -Tool DotNet)
+        if ($IsWindows) { Add-Source 'Test-NetworkPath DotNet' (Test-NetworkPath 127.0.0.1 -Count 1 -Tool DotNet) }
+        if ($IsLinux) { Add-Source 'Get-NetworkNeighbor DotNet' (Get-NetworkNeighbor -Tool DotNet -IncludeUnresolved | Select-Object -First 1) }
+        Set-WebFixture -Content @{
+            'https://api.ipify.org?format=json' = '{"ip":"20.128.0.10"}'
+            'https://checkip.amazonaws.com'     = '20.128.0.10'
+            'https://icanhazip.com'             = '20.128.0.10'
+            'https://rdap.org/ip/20.128.0.10'   = Get-Fixture 'rdap-arin.json'
+        }
+        Add-Source 'Get-ExternalIpAddress DotNet -Rdap' (Get-ExternalIpAddress -Rdap -Tool DotNet)
+        Clear-NativeFixture
+
+        # Data verdicts, and the graph built from all of the above.
+        $prefixes = (Get-NetworkGraphData -Kind CloudRanges).Data['prefixes']
+        $azureKey = $prefixes.Keys | Where-Object { -not $_.Contains(':') -and @($prefixes[$_])[0][0] -eq 'Azure' } | Select-Object -First 1
+        $verdicts = @(Test-IPAddress ($azureKey.Split('/')[0]), 1.1.1.1)
+        Add-Source 'Test-IPAddress' $verdicts
+        $graphInput = @($hostRow) + $nativeRows + $verdicts + @(New-SubnetPlan 10.0.0.0/22 -Hosts 250, 120 -Cloud Azure) + @(Get-Subnet 10.1.0.0/24)
+        $graph = $graphInput | ConvertTo-NetworkGraph -WarningAction SilentlyContinue
+        foreach ($node in $graph.Nodes) { Add-Source "node $($node.Kind)" $node }
+    }
+
+    It 'each Source is a resolvable verb-noun command, a wrapped tool command line, a full-type-name .NET expression, or a data citation; every command parses' {
+        $Checked.Count | Should -BeGreaterThan 40
+        $citation = '^[\w.-]+\.json(\.gz)? pulled \d{4}-\d{2}-\d{2} \(https://[^)\s]+\)(; [\w.-]+\.json(\.gz)? pulled \d{4}-\d{2}-\d{2} \(https://[^)\s]+\))*$'
+        $seen = @{}
+        foreach ($entry in $Checked) {
+            $source = $entry.Source
+            if ($seen.ContainsKey($source)) { continue }
+            $seen[$source] = 1
+            Write-Host ('{0,-42} {1}' -f $entry.From, $source)
+            if ($source -match $citation) { continue }
+            $first = ($source -split '\s+')[0]
+            $isCommand = $first -match '^[A-Za-z]+-[A-Za-z]+$' -and [bool](Get-Command -Name $first -ErrorAction SilentlyContinue)
+            $isTool = $first -in $Tools
+            $isType = $source -match '^\[System\.[\w.]+\]::'
+            ($isCommand -or $isTool -or $isType) | Should -BeTrue -Because "$($entry.From): '$source'"
+            { [scriptblock]::Create($source) } | Should -Not -Throw -Because "$($entry.From): '$source'"
+        }
+    }
+}

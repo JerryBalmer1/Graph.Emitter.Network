@@ -1,7 +1,9 @@
 function Get-NetworkGraphRdap {
     # Not exported. RDAP registration data for one address: rdap.org (which redirects to the RIR
     # holding it), else the RIR base URL from the IANA bootstrap file (RFC 9224). Returns
-    # { Network, Handle, Cidr, Owner, Country, Asn, RdapUrl }. Owner is the registrant entity's
+    # { Network, Handle, Cidr, Owner, Country, Asn, RdapUrl, Source }: RdapUrl is where the answer
+    # came from after redirects, Source the request that got it, as the Invoke-WebRequest call
+    # Invoke-NetworkGraphWebRequest makes. Owner is the registrant entity's
     # vCard fn, else the network name. Asn is set only when the RIR includes origin ASNs (ARIN's
     # arin_originas0 extension); RDAP itself has no BGP view.
     param(
@@ -13,8 +15,9 @@ function Get-NetworkGraphRdap {
     $sources = (Get-NetworkGraphDataDocument -Kind IpSources)['rdap']
     $value = ConvertTo-NetworkGraphIpValue -Ip $Ip
     $response = $null
+    $requested = $sources['redirector'] -replace '\{ip\}', $value.Ip
     try {
-        $response = Invoke-NetworkGraphWebRequest -Uri ($sources['redirector'] -replace '\{ip\}', $value.Ip)
+        $response = Invoke-NetworkGraphWebRequest -Uri $requested
     }
     catch {
         Write-Verbose "rdap.org failed: $($_.Exception.Message); trying the IANA bootstrap."
@@ -31,7 +34,8 @@ function Get-NetworkGraphRdap {
             }
         }
         if (-not $base) { throw [System.InvalidOperationException]::new("No RDAP service for $Ip in the IANA bootstrap file.") }
-        $response = Invoke-NetworkGraphWebRequest -Uri ($base.TrimEnd('/') + "/ip/$($value.Ip)")
+        $requested = $base.TrimEnd('/') + "/ip/$($value.Ip)"
+        $response = Invoke-NetworkGraphWebRequest -Uri $requested
     }
 
     $data = $response.Content | ConvertFrom-Json -AsHashtable -Depth 64
@@ -43,9 +47,17 @@ function Get-NetworkGraphRdap {
         }
         if ($owner) { break }
     }
+    # cidr0_cidrs lists every block of the registered network; Cidr is the one that holds the
+    # address (an ARIN network can span seven blocks, and the first need not contain it).
     $cidr = $null
-    $first = @($data['cidr0_cidrs'])[0]
-    if ($first) { $cidr = '{0}/{1}' -f ($first['v4prefix'] ?? $first['v6prefix']), $first['length'] }
+    $blocks = @($data['cidr0_cidrs'] | Where-Object { $_ })
+    foreach ($block in $blocks) {
+        $prefix = Resolve-NetworkGraphPrefix -Cidr ('{0}/{1}' -f ($block['v4prefix'] ?? $block['v6prefix']), $block['length'])
+        if ($prefix.Version -eq $value.Version -and $value.Value -ge $prefix.Network -and $value.Value -le $prefix.Last) { $cidr = $prefix.Cidr; break }
+    }
+    if ($blocks.Count -and -not $cidr) {
+        Write-Warning "RDAP for $Ip lists $($blocks.Count) CIDR block(s) and none holds the address; Cidr is empty. Response: $($response.Uri)"
+    }
     $asn = @($data['arin_originas0_originautnums'] | Where-Object { $_ })[0]
 
     [pscustomobject]@{
@@ -56,5 +68,6 @@ function Get-NetworkGraphRdap {
         Country = $data['country']
         Asn     = $asn ? [long]$asn : $null
         RdapUrl = $response.Uri
+        Source  = "Invoke-WebRequest -Uri '$requested' -MaximumRedirection 5 -TimeoutSec 60"
     }
 }

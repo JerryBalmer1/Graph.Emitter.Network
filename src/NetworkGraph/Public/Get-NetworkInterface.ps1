@@ -44,11 +44,11 @@ function Get-NetworkInterface {
             foreach ($row in ConvertFrom-NetworkGraphNetIPConfiguration -InputObject @(Get-NetworkGraphNetIPConfiguration)) { $row | Add-Member Source 'Get-NetIPConfiguration -All' -PassThru }
         }
         'ip' {
-            $addr = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'addr'
-            $route = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'route', 'show', 'table', 'main'
+            $addr = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'addr' -OkExitCodes 0
+            $route = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'route', 'show', 'table', 'main' -OkExitCodes 0
             $resolv = (Test-Path -LiteralPath '/etc/resolv.conf') ? [System.IO.File]::ReadAllText('/etc/resolv.conf') : ''
             foreach ($row in ConvertFrom-NetworkGraphIpAddrJson -Text $addr.Output -RouteText $route.Output -ResolvConf $resolv) {
-                $row | Add-Member Source "$($addr.CommandLine); $($route.CommandLine); /etc/resolv.conf" -PassThru
+                $row | Add-Member Source "$($addr.CommandLine); $($route.CommandLine); Get-Content /etc/resolv.conf" -PassThru
             }
         }
         'DotNet' {

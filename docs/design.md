@@ -83,3 +83,39 @@ Supersedes note 13. Edge kinds are `Contains`, `RoutesTo`, `HopsTo`, `ConnectsTo
 ## 20. Fixture scrub, second pass (2026-10-07)
 
 Note 9's scrub missed some values; the rule is now written down in CLAUDE.md and enforced by Pester. Changed: the Hyper-V MACs `00-15-5D-...` in Get-NetNeighbor.windows.json, arp.windows.txt and Get-NetIPConfiguration.windows.json and the container MACs in arp.linux.txt, ip-neigh.linux.json, proc-net-arp.linux.txt and ip-addr.linux.json had their device half replaced with `00-00-nn`; the EUI-64 link-local address `fe80::12b6:76ff:fe..` in Get-NetNeighbor.windows.json, which carried the original device half of `10-b6-76-00-00-04`, now ends `fe00:4`; and the address rdap-arin.json was queried for, the capturing host's external address, is now 203.0.113.7 (the address the test asks RDAP about). The registry's own network (MSFT, 20.33.0.0 to 20.128.255.255) is public data and stays.
+
+## 21. Hops: Responded, AvgMs, and loss that is not loss (0.1.1)
+
+A router that declines to send ICMP Time Exceeded shows `*` in every tool, which 0.1.0 reported as LossPercent 100. When a later hop answered, the path delivered and that is not loss. Every hop parser now returns through `Complete-NetworkGraphHop`, which sets `Responded`, sets LossPercent `$null` for a silent hop followed by one that answered, keeps a real LossPercent where some probes answered, and keeps 100 for silent hops at the end. `RttMs` means per-probe samples only. mtr and pathping report one average per hop, which is `AvgMs` with RttMs empty; for the others AvgMs is the mean of the samples. Rejected: inferring loss from the final hop, which needs both the tool's probe count and its retry behaviour.
+
+## 22. Ids: the PID on a connection, the tool on a hop (0.1.1)
+
+Two sockets sharing an endpoint (SO_REUSEADDR: mDNS 0.0.0.0:5353 held by several processes) were one Connection node with two OwnedBy edges. The Id now ends `/<pid>` when the process is known. A native and a .NET trace of the same target merged into one chain; the Hop Id is now `hop/<target>/<tool>/<n>`, and a Hop row without Tool takes the first word of its Source.
+
+## 23. Native results are checked in one place (0.1.1)
+
+`Invoke-NetworkGraphNative -OkExitCodes` is mandatory, and the runner throws on any other exit code or a timeout, with stderr and the command line. Exit codes that are answers are declared by the caller: ping 1 (no reply), nc 1 (closed), nslookup 1 (no such name), ufw 1 (not root, read as Unknown), firewall-cmd 1 and 252 (not running, or no D-Bus). Commands that loop over targets (ping, nc) turn a failure into a non-terminating error for that target. Rejected: checking in each command, where three of nineteen call sites did.
+
+## 24. Output a parser does not recognise is an error (0.1.1)
+
+Parsers read English. With exit code 0, non-empty output and zero rows, `Assert-NetworkGraphRecognised` throws "output not recognised (non-English locale?); use -Tool DotNet" instead of answering "down" or "nothing". This applies to ping, tracert, pathping, traceroute, arp, nslookup, dig and ss. Exempt: an ss header with no sockets and nslookup's "can't find", which are real empty answers; nc, whose exit code decides and whose text is only read for the port; and ufw and firewall-cmd, whose parsers already return Unknown with the text as the reason. On Linux and macOS, native tools run with LC_ALL=C and LANG=C. On Windows, Auto for Test-NetworkPath and Trace-NetworkPath is the .NET path (see note 18 for Test-NetworkPort): ping.exe, tracert and pathping follow the display language, and .NET's Ping uses the same ICMP API. They still run with `-Tool Native` or `-NativeTool`.
+
+## 25. Firewall: third-party products and ufw.conf (0.1.1)
+
+When every Windows Firewall profile is off, Get-NetworkHost reads root/SecurityCenter2 FirewallProduct. An enabled product (productState state byte 0x10) makes Firewall `ThirdParty`, with its name in FirewallReason and FirewallProducts. On Linux, /etc/ufw/ufw.conf ENABLED= is read first, which needs no root; `ufw status` is the fallback. The platform the observe commands branch on is `$script:NetworkGraphPlatform`, so tests can take another platform's path.
+
+## 26. Every Source is pasteable (0.1.1)
+
+A Source is one of: a command line (a resolvable verb-noun command, or a wrapped native tool's command line); a .NET expression that starts with a full type name and applies its timeout (`.ConnectAsync(...).Wait(ms)`), where notes the wrap rule requires ("no process information") are trailing `#` comments; or a data citation `<file> pulled <date> (<url>)` from `Get-NetworkGraphDataCitation`. Get-ExternalIpAddress gives each answer its own Source, the RDAP request as the Invoke-WebRequest call the private wrapper makes (the wrapper is not exported, so it could not be pasted), and its own Source reruns the command. Subnet nodes carry the `Get-Subnet` command that recalculates them, with the reservation citation as a comment. Graph.Tests "Every Source is pasteable" checks every form, and that `[scriptblock]::Create()` parses it.
+
+## 27. Port latency is per connect (0.1.1)
+
+Each connect's time starts after its own client is built, not at batch start, and a connect that has already finished when ConnectAsync returns is timed then. PowerShell cannot timestamp a task's completion from another thread without compiled code, so the others are timed when WaitAny returns them. Open now means the connect task completed within `-Timeout`, which is what Client.Connected meant. Tests replace the connect with `$script:NetworkGraphTcpConnector`.
+
+## 28. macOS (0.1.1)
+
+The module imports on macOS with one warning that it is untested. Get-NetworkNeighbor says there is no .NET floor there rather than read /proc.
+
+## 29. Fixture scrub, third pass: ISP infrastructure (0.1.1)
+
+Replaced in every fixture: the ISP's resolvers 68.105.28.11, 68.105.28.12 and 68.105.29.11 (now 192.0.2.53 to .55) and resolver name doh.cox.net (now dns.example.net); the first public hops after the gateway, 68.1.0.191 and 184.183.131.9 (now 198.51.100.1 and .2), in tracert and pathping; and a Wi-Fi adapter description naming its device model (now `Wireless Network Adapter`). Module.Tests keeps the literal list as the record. The CGNAT and ISP-internal hops (10.129.232.1, 100.127.77.86) and the Cloudflare hop stay: they are private, shared address space, or a third party.

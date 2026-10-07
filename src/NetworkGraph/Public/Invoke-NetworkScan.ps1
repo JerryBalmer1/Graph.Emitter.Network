@@ -79,11 +79,11 @@ function Invoke-NetworkScan {
             $arguments = @('-oX', '-', '-n', '-Pn', '-p', ($Port -join ','))
             if ($Protocol -eq 'Udp') { $arguments += '-sU' }
             $arguments += $targets
-            $run = Invoke-NetworkGraphNative -FilePath nmap -ArgumentList $arguments -TimeoutSec 3600
-            if ($run.ExitCode -ne 0 -and -not $run.Output) {
+            try { $run = Invoke-NetworkGraphNative -FilePath nmap -ArgumentList $arguments -TimeoutSec 3600 -OkExitCodes 0 }
+            catch {
                 $PSCmdlet.ThrowTerminatingError([System.Management.Automation.ErrorRecord]::new(
-                        [System.InvalidOperationException]::new("nmap failed (exit $($run.ExitCode)): $($run.Error.Trim()) Run Invoke-NetworkScan -Tool DotNet to scan without nmap."),
-                        'NmapFailed', [System.Management.Automation.ErrorCategory]::InvalidResult, $run.CommandLine))
+                        [System.InvalidOperationException]::new("$($_.Exception.Message) Run Invoke-NetworkScan -Tool DotNet to scan without nmap.", $_.Exception),
+                        'NmapFailed', [System.Management.Automation.ErrorCategory]::InvalidResult, ($arguments -join ' ')))
             }
             foreach ($row in ConvertFrom-NetworkGraphNmapXml -Text $run.Output) {
                 [pscustomobject]@{
@@ -142,7 +142,7 @@ function Invoke-NetworkScan {
                 Open       = $row.Open
                 Service    = Find-NetworkGraphPortService -Port $row.Port -Protocol Tcp
                 LatencyMs  = $row.LatencyMs
-                Source     = "[System.Net.Sockets.TcpClient]::new().ConnectAsync('$($row.Ip)', $($row.Port)), timeout $Timeout, $ThrottleLimit at a time (nmap not used)"
+                Source     = "[System.Net.Sockets.TcpClient]::new([System.Net.Sockets.AddressFamily]::$([System.Net.IPAddress]::Parse($row.Ip).AddressFamily)).ConnectAsync('$($row.Ip)', $($row.Port)).Wait($Timeout)  # $ThrottleLimit at a time; nmap not used"
             }
         }
     }

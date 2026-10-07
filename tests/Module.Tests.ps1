@@ -5,8 +5,8 @@ BeforeAll {
 }
 
 Describe 'Module' {
-    It 'is version 0.1.0 and needs PowerShell 7.4' {
-        $Manifest.ModuleVersion | Should -Be '0.1.0'
+    It 'is version 0.1.1 and needs PowerShell 7.4' {
+        $Manifest.ModuleVersion | Should -Be '0.1.1'
         $Manifest.PowerShellVersion | Should -Be '7.4'
     }
 
@@ -39,6 +39,22 @@ Describe 'Module' {
         @($names | Where-Object { $_ -match '-(Subnet|SubnetMask|SubnetPlan|SubnetOverlap|SubnetParent|SubnetChildren|IPAddress|MacAddressVendor)$' }).Count | Should -Be 9
         @($names | Where-Object { $_ -match '-(Network(Path|Port|Connection|Neighbor|Route|Interface|Name|Host|Scan)|ExternalIpAddress)$' }).Count | Should -Be 11
         @($names | Where-Object { $_ -match '-NetworkGraph(Data)?$' }).Count | Should -Be 3
+    }
+
+    It 'warns once at import on macOS that it is untested, and not on Windows or Linux' {
+        $warnings = InModuleScope NetworkGraph {
+            $saved = $script:NetworkGraphPlatform
+            try {
+                foreach ($platform in 'macOS', 'Windows', 'Linux') {
+                    $script:NetworkGraphPlatform = $platform
+                    Write-NetworkGraphPlatformWarning 3>&1 | ForEach-Object { "${platform}: $_" }
+                }
+            }
+            finally { $script:NetworkGraphPlatform = $saved }
+        }
+        @($warnings).Count | Should -Be 1
+        $warnings | Should -BeLike 'macOS: NetworkGraph is untested on macOS*'
+        (Get-Content -Raw (Join-Path $ModuleRoot 'NetworkGraph.psm1')) | Should -Match '(?m)^Write-NetworkGraphPlatformWarning\s*$'
     }
 
     It 'ships no binaries' {
@@ -147,6 +163,28 @@ Describe 'Fixture scrubbing (CLAUDE.md, "Fixture scrub rule")' {
         }
     }
 
+    It 'no fixture contains the capturing site''s ISP infrastructure (the record of what was scrubbed in 0.1.1)' {
+        # Replaced in 0.1.1 (CLAUDE.md, fixture scrub rule): the ISP's resolvers and resolver name,
+        # the first public hops after the gateway, and a Wi-Fi adapter named for its device model.
+        $scrubbed = @(
+            '68.105.28.11', '68.105.28.12', '68.105.29.11', 'doh.cox.net'
+            '68.1.0.191', '184.183.131.9'
+            'Killer(R) Wi-Fi 6E AX1675x 160MHz Wireless Network Adapter (210NGW)', 'AX1675x', '210NGW'
+        )
+        foreach ($file in $FixtureFiles) {
+            $text = [System.IO.File]::ReadAllText($file.FullName)
+            foreach ($literal in $scrubbed) { $text.Contains($literal) | Should -BeFalse -Because "$($file.Name) holds '$literal'" }
+        }
+    }
+
+    It 'no fixture host name ends in a residential ISP''s domain' {
+        $isp = '(?i)\b[a-z0-9-]+(\.[a-z0-9-]+)*\.(cox\.net|comcast\.net|att\.net|charter\.com|centurylink\.net|verizon\.net|spectrum\.com)\b'
+        foreach ($file in $FixtureFiles) {
+            $match = [regex]::Match([System.IO.File]::ReadAllText($file.FullName), $isp)
+            $match.Success | Should -BeFalse -Because "$($file.Name) holds '$($match.Value)'"
+        }
+    }
+
     It 'no fixture MAC has a device half other than 00-00-nn, in MAC form or inside an EUI-64 IPv6 address' {
         # Multicast and broadcast MACs (group bit set) and the all-zero MAC name no device. The OUI
         # test vectors live in Get-MacAddressVendor.Tests.ps1, not in fixtures.
@@ -166,5 +204,108 @@ Describe 'Fixture scrubbing (CLAUDE.md, "Fixture scrub rule")' {
                 ($bytes[13] -eq 0 -and $bytes[14] -eq 0) | Should -BeTrue -Because "$($file.Name) holds $($match.Value), an EUI-64 address that carries a MAC"
             }
         }
+    }
+}
+
+Describe 'Native results are checked in one place (Invoke-NetworkGraphNative -OkExitCodes)' {
+    It 'every Invoke-NetworkGraphNative call declares -OkExitCodes' {
+        $calls = foreach ($file in Get-ChildItem -Path $ModuleRoot -Recurse -Filter '*.ps1') {
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+            $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Invoke-NetworkGraphNative' }, $true) |
+                ForEach-Object { [pscustomobject]@{ File = $file.Name; Line = $_.Extent.StartLineNumber; Declares = [bool]($_.CommandElements | Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -eq 'OkExitCodes' }) } }
+        }
+        @($calls).Count | Should -Be 19
+        foreach ($call in $calls) { $call.Declares | Should -BeTrue -Because "$($call.File):$($call.Line)" }
+    }
+
+    It 'a timed-out tool throws with the command line and nothing is parsed' {
+        InModuleScope NetworkGraph {
+            $script:NetworkGraphNativeInvoker = { param($FilePath, $ArgumentList) [pscustomobject]@{ ExitCode = $null; Output = 'partial'; Error = ''; TimedOut = $true } }
+            try { { Invoke-NetworkGraphNative -FilePath ss -ArgumentList '-tunap' -TimeoutSec 5 -OkExitCodes 0 } | Should -Throw '*timed out after 5 s*Command: ss -tunap*' }
+            finally { $script:NetworkGraphNativeInvoker = $null }
+        }
+    }
+
+    Context 'exit 2 with stderr text throws, naming both, for <Name>' -ForEach @(
+        @{ Name = 'Test-NetworkPath (ping)'; Tool = 'ping'; Run = { Test-NetworkPath 192.0.2.1 -Count 1 -Tool Native -ErrorAction Stop } }
+        @{ Name = 'Trace-NetworkPath (tracert)'; Tool = 'tracert'; Run = { Trace-NetworkPath 192.0.2.1 -NativeTool tracert -Tool Native } }
+        @{ Name = 'Trace-NetworkPath (pathping)'; Tool = 'pathping'; Run = { Trace-NetworkPath 192.0.2.1 -NativeTool pathping -Tool Native } }
+        @{ Name = 'Trace-NetworkPath (mtr)'; Tool = 'mtr'; Run = { Trace-NetworkPath 192.0.2.1 -NativeTool mtr -Tool Native } }
+        @{ Name = 'Trace-NetworkPath (traceroute)'; Tool = 'traceroute'; Run = { Trace-NetworkPath 192.0.2.1 -NativeTool traceroute -Tool Native } }
+        @{ Name = 'Test-NetworkPort (nc)'; Tool = 'nc'; Run = { Test-NetworkPort 192.0.2.1 -Port 80 -Tool Native -ErrorAction Stop } }
+        @{ Name = 'Get-NetworkConnection (ss)'; Tool = 'ss'; Run = { Get-NetworkConnection -Tool Native } }
+        @{ Name = 'Get-NetworkRoute (ip)'; Tool = 'ip'; Run = { Get-NetworkRoute -Tool Native } }
+        @{ Name = 'Get-NetworkNeighbor (ip)'; Tool = 'ip'; Run = { Get-NetworkNeighbor -Tool Native } }
+        @{ Name = 'Get-NetworkNeighbor (arp)'; Tool = 'arp'; Run = { Get-NetworkNeighbor -Tool Native } }
+        @{ Name = 'Get-NetworkInterface (ip)'; Tool = 'ip'; Run = { Get-NetworkInterface -Tool Native } }
+        @{ Name = 'Get-NetworkHost (ip, through Get-NetworkInterface)'; Tool = 'ip'; Run = { Get-NetworkHost -Tool Native } }
+        @{ Name = 'Resolve-NetworkName (dig)'; Tool = 'dig'; Run = { Resolve-NetworkName example.com -Tool Native } }
+        @{ Name = 'Resolve-NetworkName (nslookup)'; Tool = 'nslookup'; Run = { Resolve-NetworkName example.com -Tool Native } }
+        @{ Name = 'Get-ExternalIpAddress (curl)'; Tool = 'curl'; Run = { Get-ExternalIpAddress -Tool Native } }
+        @{ Name = 'Invoke-NetworkScan (nmap)'; Tool = 'nmap'; Run = { Invoke-NetworkScan 192.0.2.1 -Port 80 -Tool Native } }
+    ) {
+        BeforeAll {
+            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph -MockWith ([scriptblock]::Create("'$Tool'"))
+            Set-NativeFixture -Output @{ $Tool = '' } -ExitCode @{ $Tool = 2 } -ErrorText @{ $Tool = "simulated $Tool failure: bad option" }
+        }
+        AfterAll { Clear-NativeFixture }
+
+        It 'throws with exit 2, the stderr text and the command line' {
+            $message = try { & $Run | Out-Null; $null } catch { $_.Exception.Message }
+            $message | Should -Not -BeNullOrEmpty
+            $message | Should -BeLike "*exit code 2*"
+            $message | Should -BeLike "*simulated $Tool failure: bad option*"
+            $message | Should -BeLike "*Command: $Tool *"
+        }
+    }
+}
+
+Describe 'Text parsers refuse output they do not recognise' {
+    BeforeAll {
+        # The fixture cut to its header: everything before the first line that carries data.
+        function Get-Header([string]$Name, [string]$UpTo) {
+            $lines = (Get-Fixture $Name) -split "`r?`n"
+            $index = 0
+            while ($index -lt $lines.Count -and $lines[$index] -notmatch $UpTo) { $index++ }
+            ($lines[0..([math]::Max(0, $index - 1))] -join "`n")
+        }
+    }
+
+    It '<Parser> on <Fixture> cut to its header line throws "output not recognised (non-English locale?); use -Tool DotNet"' -ForEach @(
+        @{ Parser = 'ConvertFrom-NetworkGraphPingOutput'; Fixture = 'ping.windows.txt'; UpTo = '^Reply from' }
+        @{ Parser = 'ConvertFrom-NetworkGraphPingOutput'; Fixture = 'ping.linux.txt'; UpTo = 'bytes from' }
+        @{ Parser = 'ConvertFrom-NetworkGraphTracertOutput'; Fixture = 'tracert.windows.txt'; UpTo = '^\s+1\s' }
+        @{ Parser = 'ConvertFrom-NetworkGraphPathpingOutput'; Fixture = 'pathping.windows.txt'; UpTo = '^\s+0\s' }
+        @{ Parser = 'ConvertFrom-NetworkGraphTracerouteOutput'; Fixture = 'traceroute.linux.txt'; UpTo = '^\s+1\s' }
+        @{ Parser = 'ConvertFrom-NetworkGraphArpOutput'; Fixture = 'arp.windows.txt'; UpTo = '^\s+\d+\.' }
+        @{ Parser = 'ConvertFrom-NetworkGraphNslookupOutput'; Fixture = 'nslookup.windows.txt'; UpTo = '^Name:' }
+        @{ Parser = 'ConvertFrom-NetworkGraphNslookupOutput'; Fixture = 'nslookup.linux.txt'; UpTo = '^Name:' }
+    ) {
+        $header = Get-Header $Fixture $UpTo
+        $header.Trim() | Should -Not -BeNullOrEmpty
+        { InModuleScope NetworkGraph -Parameters @{ P = $Parser; T = $header } { param($P, $T) & $P -Text $T } } |
+            Should -Throw '*output not recognised (non-English locale?); use -Tool DotNet*'
+        # The whole fixture still parses.
+        @(InModuleScope NetworkGraph -Parameters @{ P = $Parser; T = (Get-Fixture $Fixture) } { param($P, $T) & $P -Text $T }).Count | Should -BeGreaterThan 0
+    }
+
+    It 'dig: a fixture line cut to its first two fields throws; ss: a header with no sockets is a genuine empty table' {
+        $digLine = ((Get-Fixture 'dig.linux.txt') -split "`r?`n")[0] -split '\s+' | Select-Object -First 2
+        { InModuleScope NetworkGraph -Parameters @{ T = ($digLine -join "`t") } { param($T) ConvertFrom-NetworkGraphDigOutput -Text $T } } | Should -Throw '*dig output not recognised*'
+        $ssHeader = ((Get-Fixture 'ss.linux.txt') -split "`r?`n")[0]
+        @(InModuleScope NetworkGraph -Parameters @{ T = $ssHeader } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T }).Count | Should -Be 0
+        $ssCut = (((Get-Fixture 'ss.linux.txt') -split "`r?`n")[1] -split '\s+' | Select-Object -First 3) -join ' '
+        { InModuleScope NetworkGraph -Parameters @{ T = $ssCut } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T } } | Should -Throw '*ss output not recognised*'
+    }
+
+    It 'an exit code the caller declared as an answer (ping 1 = no reply) is not a parse failure' {
+        $header = Get-Header 'ping.windows.txt' '^Reply from'
+        { InModuleScope NetworkGraph -Parameters @{ T = $header } { param($T) ConvertFrom-NetworkGraphPingOutput -Text $T -ExitCode 1 } } | Should -Not -Throw
+    }
+
+    It 'native tools run with LC_ALL=C and LANG=C off Windows' -Skip:$IsWindows {
+        # pwsh is the test runner itself, not a network tool.
+        $run = InModuleScope NetworkGraph { Invoke-NetworkGraphNative -FilePath pwsh -ArgumentList '-NoProfile', '-Command', '"$env:LC_ALL|$env:LANG"' -OkExitCodes 0 }
+        $run.Output.Trim() | Should -Be 'C|C'
     }
 }

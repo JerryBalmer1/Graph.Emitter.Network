@@ -36,12 +36,20 @@ Every node: `Id`, `Kind`, `Name`, the kind's own properties, then `Source`. `Nam
 | Interface | `<host>/if/<interface name>` | Id, Kind, Name, InterfaceName, Ip, PrefixLength, MacAddress, Vendor, Status, Source |
 | Subnet | `<cidr>@<cloud>`, for example `10.0.1.0/24@Azure`; `@None` for an interface's subnet | Id, Kind, Name, Cidr, Cloud, PrefixLength, Usable, BelowCloudMinimum, Source |
 | Route | `<host>/route/<cidr>/<next hop or on-link>/<interface or ->` | Id, Kind, Name, Destination, PrefixLength, NextHop, InterfaceName, Metric, Source |
-| Hop | `hop/<target>/<hop number>` | Id, Kind, Name, Target, Hop, Ip, RttMs, LossPercent, Source |
-| Connection | `<host>/conn/<tcp or udp>/<local ip>:<port>/<remote ip>:<port>`, IPv6 in brackets, remote `*` for a listener | Id, Kind, Name, Protocol, LocalIp, LocalPort, RemoteIp, RemotePort, State, ProcessId, Source |
+| Hop | `hop/<target>/<tool>/<hop number>`; tool is tracert, pathping, mtr, traceroute or DotNet | Id, Kind, Name, Target, Hop, Ip, RttMs, AvgMs, LossPercent, Responded, Source |
+| Connection | `<host>/conn/<tcp or udp>/<local ip>:<port>/<remote ip>:<port>/<pid>`, IPv6 in brackets, remote `*` for a listener, `/<pid>` only when the process is known | Id, Kind, Name, Protocol, LocalIp, LocalPort, RemoteIp, RemotePort, State, ProcessId, Source |
 | Process | `<host>:<pid>` | Id, Kind, Name, ProcessId, ProcessName, Source |
 | RemoteHost | `<ip>`; a DNS name with no address of its own is `dns:<name>` | Id, Kind, Name, Ip, RemoteHost, MacAddress, Vendor, Cloud, Service, Asn, Owner, OpenPorts, Source |
 | Cloud | `cloud/<cloud>` (Azure, AWS, GCP, Google) | Id, Kind, Name, Cloud, Source |
 | Asn | `AS<number>` | Id, Kind, Name, Asn, Owner, Source |
+
+Hop values: `RttMs` is per-probe samples only; `AvgMs` is their mean, or the tool's own average where it reports only that (mtr, pathping: `RttMs` empty). `Responded` is `$false` for a hop that answered no probe. Such a hop has `LossPercent` `$null` when a later hop answered (the router does not send ICMP Time Exceeded; the path delivered), keeps a real `LossPercent` when some probes answered, and keeps 100 when no later hop answered either.
+
+### Changed in 0.1.1
+
+- Hop: new properties `AvgMs` (after RttMs) and `Responded` (after LossPercent). `RttMs` now always means per-probe samples; mtr's and pathping's averages moved from `RttMs` to `AvgMs`. `LossPercent` is `$null` for a silent hop followed by one that answered (was 100).
+- Hop Id: `hop/<target>/<n>` became `hop/<target>/<tool>/<n>`, so a native and a .NET trace of the same target are two chains instead of one merged chain.
+- Connection Id: `/<pid>` is appended when the process is known, so sockets sharing an endpoint (SO_REUSEADDR) are separate nodes, each with its own OwnedBy edge.
 
 Naming rule: no node property is called `Address`, `Count`, `Length` or any other member of `System.Array`, because member access on an array of nodes (`$graph.Nodes.Count`) would hit the array's member instead. Hence `Ip`, `InterfaceName`, `Hop`, `OpenPorts`.
 

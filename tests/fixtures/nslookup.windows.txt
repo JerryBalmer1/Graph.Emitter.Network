@@ -1,7 +1,7 @@
 Non-authoritative answer:
 
-Server:  doh.cox.net
-Address:  68.105.28.11
+Server:  dns.example.net
+Address:  192.0.2.53
 
 Name:    example.com
 Addresses:  172.66.147.243

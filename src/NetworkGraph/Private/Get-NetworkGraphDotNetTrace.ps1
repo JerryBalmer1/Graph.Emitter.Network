@@ -3,7 +3,7 @@ function Get-NetworkGraphDotNetTrace {
     # System.Net.NetworkInformation.Ping. For TTL 1..MaxHops, -Queries echoes with that TTL; a
     # TtlExpired reply names the hop, a Success reply is the target and ends the trace. RTT is
     # measured with a stopwatch, since some platforms report 0 for TtlExpired replies. Returns hop
-    # rows { Hop, Ip, Host, RttMs, LossPercent }.
+    # rows in the Complete-NetworkGraphHop shape.
     param(
         [Parameter(Mandatory)]
         [string]
@@ -22,6 +22,7 @@ function Get-NetworkGraphDotNetTrace {
     $ping = [System.Net.NetworkInformation.Ping]::new()
     $buffer = [byte[]]::new(32)
     $watch = [System.Diagnostics.Stopwatch]::new()
+    $rows = [System.Collections.Generic.List[object]]::new()
     try {
         for ($ttl = 1; $ttl -le $MaxHops; $ttl++) {
             $options = [System.Net.NetworkInformation.PingOptions]::new($ttl, $true)
@@ -38,17 +39,18 @@ function Get-NetworkGraphDotNetTrace {
                     if ($reply.Status -eq 'Success') { $reached = $true }
                 }
             }
-            [pscustomobject]@{
+            $rows.Add([pscustomobject]@{
                 Hop         = $ttl
                 Ip          = $ip
                 Host        = $null
                 RttMs       = $rtts.ToArray()
                 LossPercent = [math]::Round(100 * ($Queries - $rtts.Count) / $Queries, 1)
-            }
+            })
             if ($reached) { break }
         }
     }
     finally {
         $ping.Dispose()
     }
+    Complete-NetworkGraphHop -Hop $rows.ToArray()
 }

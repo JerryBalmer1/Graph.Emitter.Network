@@ -1,16 +1,19 @@
 function ConvertFrom-NetworkGraphTracerouteOutput {
-    # Not exported. Linux traceroute text (run with -n) to hop rows { Hop, Ip, Host, RttMs,
-    # LossPercent }. traceroute has no structured output: tokens are read in order, an address
+    # Not exported. Linux traceroute text (run with -n) to hop rows (Complete-NetworkGraphHop
+    # shape). traceroute has no structured output: tokens are read in order, an address
     # sets the responder (the first one wins), 'N ms' is a probe time, '*' a lost probe; !H-style
     # annotations are ignored. Pinned by tests/fixtures/traceroute*.linux.txt.
     param(
         [Parameter(Mandatory)]
         [AllowEmptyString()]
         [string]
-        $Text
+        $Text,
+
+        [int]
+        $ExitCode = 0
     )
 
-    foreach ($line in $Text -split "`r?`n") {
+    $rows = foreach ($line in $Text -split "`r?`n") {
         if ($line -notmatch '^\s*(\d+)\s+(.*)$') { continue }
         $hop = [int]$Matches[1]
         $tokens = $Matches[2] -split '\s+' | Where-Object { $_ }
@@ -36,4 +39,6 @@ function ConvertFrom-NetworkGraphTracerouteOutput {
             LossPercent = $probes ? [math]::Round(100 * $lost / $probes, 1) : $null
         }
     }
+    Assert-NetworkGraphRecognised -Tool traceroute -Text $Text -ExitCode $ExitCode -Count @($rows).Count
+    Complete-NetworkGraphHop -Hop @($rows)
 }

@@ -87,14 +87,14 @@ function Resolve-NetworkName {
                     $arguments = @('+noall', '+answer')
                     if ($Server) { $arguments += "@$Server" }
                     $arguments += ($recordType -eq 'PTR' -and $isAddress) ? @('-x', $query) : @($query, $recordType)
-                    $run = Invoke-NetworkGraphNative -FilePath dig -ArgumentList $arguments
-                    foreach ($row in ConvertFrom-NetworkGraphDigOutput -Text $run.Output) { $row | Add-Member Source $run.CommandLine -PassThru }
+                    $run = Invoke-NetworkGraphNative -FilePath dig -ArgumentList $arguments -OkExitCodes 0
+                    foreach ($row in ConvertFrom-NetworkGraphDigOutput -Text $run.Output -ExitCode $run.ExitCode) { $row | Add-Member Source $run.CommandLine -PassThru }
                 }
                 'nslookup' {
                     $arguments = @("-type=$recordType", $query)
                     if ($Server) { $arguments += $Server }
-                    $run = Invoke-NetworkGraphNative -FilePath nslookup -ArgumentList $arguments
-                    foreach ($row in ConvertFrom-NetworkGraphNslookupOutput -Text $run.Output) { $row | Add-Member Source $run.CommandLine -PassThru }
+                    $run = Invoke-NetworkGraphNative -FilePath nslookup -ArgumentList $arguments -OkExitCodes 0, 1
+                    foreach ($row in ConvertFrom-NetworkGraphNslookupOutput -Text $run.Output -ExitCode $run.ExitCode) { $row | Add-Member Source $run.CommandLine -PassThru }
                 }
                 'DotNet' {
                     try {

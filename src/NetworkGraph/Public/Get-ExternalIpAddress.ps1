@@ -31,8 +31,9 @@ function Get-ExternalIpAddress {
         Get-ExternalIpAddress -Rdap
 
     .OUTPUTS
-        NetworkGraph.ExternalIp: Ip, Version, Agreed, Answers (Endpoint, Url, Ip, Error), Network,
-        Owner, Country, Cidr, Asn, RdapUrl, Source.
+        NetworkGraph.ExternalIp: Ip, Version, Agreed, Answers (Endpoint, Url, Ip, Error, Source: the
+        one command that asked that endpoint), Network, Owner, Country, Cidr, Asn, RdapUrl,
+        RdapSource (the RDAP request, as Invoke-WebRequest), Source (this command, to rerun it).
     #>
     [CmdletBinding()]
     [OutputType('NetworkGraph.ExternalIp')]
@@ -51,20 +52,20 @@ function Get-ExternalIpAddress {
 
     $chosen = Resolve-NetworkGraphTool -Tool $Tool -Candidate @('curl') -CommandName 'Get-ExternalIpAddress'
     $endpoints = @((Get-NetworkGraphDataDocument -Kind IpSources)['endpoints'])
-    $commands = [System.Collections.Generic.List[string]]::new()
 
     $answers = foreach ($endpoint in $endpoints) {
         $text = $null
         $problem = $null
+        $curl = @('-s', '-S', '--proto', '=https', '-m', "$TimeoutSec", $endpoint['url'])
+        # One command per answer; curl's is the command line Invoke-NetworkGraphNative builds.
+        $source = ($chosen -eq 'curl') ? ((@('curl') + $curl) -join ' ') : "Invoke-WebRequest -Uri '$($endpoint['url'])' -MaximumRedirection 5 -TimeoutSec $TimeoutSec"
         try {
             if ($chosen -eq 'curl') {
-                $run = Invoke-NetworkGraphNative -FilePath curl -ArgumentList '-s', '-S', '--proto', '=https', '-m', "$TimeoutSec", $endpoint['url'] -TimeoutSec ($TimeoutSec + 5)
-                $commands.Add($run.CommandLine)
-                if ($run.ExitCode -ne 0) { throw $run.Error.Trim() }
+                $run = Invoke-NetworkGraphNative -FilePath curl -ArgumentList $curl -TimeoutSec ($TimeoutSec + 5) -OkExitCodes 0
+                $source = $run.CommandLine
                 $text = $run.Output
             }
             else {
-                $commands.Add("Invoke-WebRequest $($endpoint['url'])")
                 $text = (Invoke-NetworkGraphWebRequest -Uri $endpoint['url'] -TimeoutSec $TimeoutSec).Content
             }
             $answer = ($endpoint['format'] -eq 'json') ? ($text | ConvertFrom-Json -AsHashtable)[$endpoint['field']] : $text
@@ -74,7 +75,7 @@ function Get-ExternalIpAddress {
             $ip = $null
             $problem = "$_"
         }
-        [pscustomobject]@{ Endpoint = $endpoint['name']; Url = $endpoint['url']; Ip = $ip; Error = $problem }
+        [pscustomobject]@{ Endpoint = $endpoint['name']; Url = $endpoint['url']; Ip = $ip; Error = $problem; Source = $source }
     }
 
     $votes = @($answers | Where-Object Ip | Group-Object Ip | Sort-Object Count -Descending)
@@ -89,7 +90,6 @@ function Get-ExternalIpAddress {
     if ($Rdap) {
         try { $registration = Get-NetworkGraphRdap -Ip $ip }
         catch { Write-Error -Message "RDAP lookup for $ip failed: $($_.Exception.Message)" -ErrorId 'RdapFailed' -Category ConnectionError -TargetObject $ip }
-        if ($registration) { $commands.Add("RDAP $($registration.RdapUrl)") }
     }
 
     [pscustomobject]@{
@@ -104,6 +104,7 @@ function Get-ExternalIpAddress {
         Cidr       = $registration ? $registration.Cidr : $null
         Asn        = $registration ? $registration.Asn : $null
         RdapUrl    = $registration ? $registration.RdapUrl : $null
-        Source     = $commands -join '; '
+        RdapSource = $registration ? $registration.Source : $null
+        Source     = 'Get-ExternalIpAddress' + ($Rdap ? ' -Rdap' : '') + " -TimeoutSec $TimeoutSec -Tool $(($chosen -eq 'curl') ? 'Native' : 'DotNet')"
     }
 }

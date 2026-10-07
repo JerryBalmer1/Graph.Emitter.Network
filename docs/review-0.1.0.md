@@ -282,19 +282,19 @@ Each item is marked **do now** (0.1.1), **before Gallery** (0.2.0, before the fi
 
 ### 0.1.1: do now (about 3 days in total)
 
-| # | Item | Cost | Why now |
-|---|---|---|---|
-| 1 | A5: graph accepts `Deserialized.*` rows | 15 min | Two lines, and it unblocks remote use |
-| 2 | A4: RDAP Cidr must contain the address | 30 min | A test currently pins a wrong answer |
-| 3 | A2: exit codes and timeouts checked in one place | 2-3 h | Removes silent empty results; A1 builds on it |
-| 4 | A1: Windows ping and tracert Auto on .NET, "not recognised" error, `LC_ALL=C` | 4 h | Today the default command gives a confident wrong answer outside English locales |
-| 5 | A3: third-party firewall and non-root ufw | 2 h | Today it raises a false "firewall off" alarm |
-| 6 | A6 and B8: hop `Responded`, LossPercent `$null` for non-responders, AvgMs | 2-3 h | Hop contract change; cheaper before anyone depends on it |
-| 7 | A8: Ids include PID and a trace discriminator | 1 h | Contract change; same reason |
-| 8 | A7: pasteable .NET Sources; data verdicts cite file, date and URL | 2-3 h | The module's core promise |
-| 9 | A14: LatencyMs measured per connect | 30 min | A labelled number that is wrong |
-| 10 | A13: macOS warning; no /proc read on macOS | 15 min | Replaces a stack trace with "unsupported" |
-| 11 | A15: decide on ISP-identifying fixture values | 1 h | Do before the repo is public; after that it cannot be taken back |
+| # | Item | Cost | Why now | Status |
+|---|---|---|---|---|
+| 1 | A5: graph accepts `Deserialized.*` rows | 15 min | Two lines, and it unblocks remote use | done 0.1.1 |
+| 2 | A4: RDAP Cidr must contain the address | 30 min | A test currently pins a wrong answer | done 0.1.1 |
+| 3 | A2: exit codes and timeouts checked in one place | 2-3 h | Removes silent empty results; A1 builds on it | done 0.1.1 |
+| 4 | A1: Windows ping and tracert Auto on .NET, "not recognised" error, `LC_ALL=C` | 4 h | Today the default command gives a confident wrong answer outside English locales | done 0.1.1 |
+| 5 | A3: third-party firewall and non-root ufw | 2 h | Today it raises a false "firewall off" alarm | done 0.1.1 |
+| 6 | A6 and B8: hop `Responded`, LossPercent `$null` for non-responders, AvgMs | 2-3 h | Hop contract change; cheaper before anyone depends on it | done 0.1.1 |
+| 7 | A8: Ids include PID and a trace discriminator | 1 h | Contract change; same reason | done 0.1.1 |
+| 8 | A7: pasteable .NET Sources; data verdicts cite file, date and URL | 2-3 h | The module's core promise | done 0.1.1 |
+| 9 | A14: LatencyMs measured per connect | 30 min | A labelled number that is wrong | done 0.1.1 |
+| 10 | A13: macOS warning; no /proc read on macOS | 15 min | Replaces a stack trace with "unsupported" | done 0.1.1 |
+| 11 | A15: decide on ISP-identifying fixture values | 1 h | Do before the repo is public; after that it cannot be taken back | done 0.1.1 |
 
 ### 0.2.0: before Gallery
 

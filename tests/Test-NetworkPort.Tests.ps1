@@ -65,6 +65,28 @@ Describe 'Test-NetworkPort' {
         }
     }
 
+    It 'times each connect from its own start: a slow port 2 does not add to port 1''s LatencyMs' {
+        $rows = InModuleScope NetworkGraph {
+            # A fake connect: nothing is sent; port 2 takes 50 ms to start, both succeed.
+            $script:NetworkGraphTcpConnector = {
+                param($Client, $Address, $Port)
+                if ($Port -eq 2) { Start-Sleep -Milliseconds 50 }
+                [System.Threading.Tasks.Task]::CompletedTask
+            }
+            try {
+                Test-NetworkGraphTcpPortBatch -Pair @(
+                    [pscustomobject]@{ Target = 'a'; Ip = '192.0.2.1'; Port = 1 }
+                    [pscustomobject]@{ Target = 'a'; Ip = '192.0.2.1'; Port = 2 }) -Timeout 2000
+            }
+            finally { $script:NetworkGraphTcpConnector = $null }
+        }
+        $rows[0].Open | Should -BeTrue
+        $rows[0].LatencyMs | Should -Not -BeNullOrEmpty
+        $rows[0].LatencyMs | Should -BeLessThan 20
+        $rows[1].Open | Should -BeTrue
+        $rows[1].LatencyMs | Should -BeGreaterOrEqual 45
+    }
+
     It 'connects to 1.1.1.1:443 with the native tool' -Tag Live -Skip:(-not $env:NETWORKGRAPH_LIVE) {
         (Test-NetworkPort 1.1.1.1 -Port 443 -Tool Native).Open | Should -BeTrue
     }

@@ -73,12 +73,12 @@ MAC vendors: Windows, iOS and Android randomise the MAC address they show each n
 
 ## Observe
 
-Each observe command uses the native tool when it is installed, falls back to a .NET floor when it is not, and takes `-Tool Auto|Native|DotNet` to force one. The exception is `Test-NetworkPort`, whose Auto is the .NET path because Test-NetConnection ignores `-Timeout` and spends about 20 seconds on a filtered port. Every row has a `Source` property naming the tool and the exact command line that produced it, so output can be checked by hand.
+Each observe command uses the native tool when it is installed, falls back to a .NET floor when it is not, and takes `-Tool Auto|Native|DotNet` to force one. The exceptions: `Test-NetworkPort`, whose Auto is the .NET path because Test-NetConnection ignores `-Timeout` and spends about 20 seconds on a filtered port; and `Test-NetworkPath` and `Trace-NetworkPath` on Windows, whose Auto is the .NET path because ping.exe, tracert and pathping print in the Windows display language and .NET's `Ping` uses the same ICMP API. Every row has a `Source` property naming the tool and the exact command line that produced it, so output can be checked by hand.
 
 | Command | Windows native | Linux native | .NET floor |
 |---|---|---|---|
-| `Test-NetworkPath` | ping.exe | ping | `Ping` |
-| `Trace-NetworkPath` | tracert, or pathping with `-NativeTool pathping` | mtr --json, else traceroute | TTL-stepped `Ping` |
+| `Test-NetworkPath` | ping.exe (`-Tool Native` only) | ping | `Ping` (what Auto uses on Windows) |
+| `Trace-NetworkPath` | tracert, or pathping with `-NativeTool pathping` (`-Tool Native` or `-NativeTool` only) | mtr --json, else traceroute | TTL-stepped `Ping` (what Auto uses on Windows) |
 | `Test-NetworkPort` | Test-NetConnection (`-Tool Native` only) | nc -z (`-Tool Native` only) | `TcpClient` (honours `-Timeout`; what Auto uses) |
 | `Get-NetworkConnection` | Get-NetTCPConnection, Get-NetUDPEndpoint | ss -tunap | `IPGlobalProperties` (no process) |
 | `Get-NetworkNeighbor` | Get-NetNeighbor, else arp -a | ip -j neigh, else arp -a | /proc/net/arp (Linux only) |
@@ -88,7 +88,7 @@ Each observe command uses the native tool when it is installed, falls back to a 
 | `Get-ExternalIpAddress` | curl | curl | `HttpClient` |
 | `Invoke-NetworkScan` | nmap | nmap | `TcpClient` |
 
-Structured output is parsed where the tool offers it (`ip -j`, `mtr --json`, `nmap -oX`, PowerShell objects). Text output (ping, tracert, pathping, traceroute, ss, arp, dig, nslookup, nc, ufw) is read with regular expressions pinned by fixture tests captured from real runs on each platform; English output only.
+Structured output is parsed where the tool offers it (`ip -j`, `mtr --json`, `nmap -oX`, PowerShell objects). Text output (ping, tracert, pathping, traceroute, ss, arp, dig, nslookup, nc, ufw) is read with regular expressions pinned by fixture tests captured from real runs on each platform; English output only. On Linux and macOS native tools run with `LC_ALL=C`; output a parser does not recognise is an error that names `-Tool DotNet`, never an empty or "down" answer. A native tool that exits with a code its command does not expect, or times out, is an error carrying its stderr and command line.
 
 `Invoke-NetworkScan` runs nmap with `-oX` if it is on PATH and otherwise falls back to TCP connect tests, and NetworkGraph bundles no nmap, no scripts folder and adds no OS-fingerprinting flags by default.
 

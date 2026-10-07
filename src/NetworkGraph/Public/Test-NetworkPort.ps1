@@ -91,7 +91,7 @@ function Test-NetworkPort {
             if (-not $ip) { continue }
 
             if ($Protocol -eq 'Udp') {
-                $note = ($chosen -ne 'DotNet') ? " ($chosen cannot tell open from filtered UDP; .NET used)" : ''
+                $note = ($chosen -ne 'DotNet') ? "  # $chosen cannot tell open from filtered UDP; .NET used" : ''
                 foreach ($number in $Port) {
                     $client = [System.Net.Sockets.UdpClient]::new([System.Net.IPAddress]::Parse($ip).AddressFamily)
                     $open = $null
@@ -111,7 +111,7 @@ function Test-NetworkPort {
                         if ($inner -is [System.Net.Sockets.SocketException] -and $inner.SocketErrorCode -in 'ConnectionReset', 'ConnectionRefused') { $open = $false }
                     }
                     finally { $client.Dispose() }
-                    & $newRow $item $ip $number $open $null "[System.Net.Sockets.UdpClient]::new().Send(empty) to ${ip}:$number, Receive timeout $Timeout$note"
+                    & $newRow $item $ip $number $open $null "[System.Net.Sockets.UdpClient]::new('$ip', $number) | ForEach-Object { `$_.Client.ReceiveTimeout = $Timeout; `$null = `$_.Send([byte[]]::new(0), 0); `$from = [System.Net.IPEndPoint]::new([System.Net.IPAddress]::Any, 0); `$_.Receive([ref]`$from) }$note"
                 }
                 continue
             }
@@ -126,7 +126,9 @@ function Test-NetworkPort {
                 }
                 'nc' {
                     foreach ($number in $Port) {
-                        $run = Invoke-NetworkGraphNative -FilePath nc -ArgumentList '-z', '-v', '-n', '-w', "$([math]::Ceiling($Timeout / 1000))", $ip, "$number" -TimeoutSec ([math]::Ceiling($Timeout / 1000) + 10)
+                        # Exit 1 is a closed port, an answer; anything else is an error for this port.
+                        try { $run = Invoke-NetworkGraphNative -FilePath nc -ArgumentList '-z', '-v', '-n', '-w', "$([math]::Ceiling($Timeout / 1000))", $ip, "$number" -TimeoutSec ([math]::Ceiling($Timeout / 1000) + 10) -OkExitCodes 0, 1 }
+                        catch { Write-Error -Message $_.Exception.Message -ErrorId 'NativeToolFailed' -Category InvalidResult -TargetObject "${ip}:$number"; continue }
                         $parsed = ConvertFrom-NetworkGraphNcOutput -Text "$($run.Output)`n$($run.Error)" | Select-Object -First 1
                         $open = $parsed ? $parsed.Open : ($run.ExitCode -eq 0)
                         & $newRow $item $ip $number $open $null $run.CommandLine
@@ -135,7 +137,7 @@ function Test-NetworkPort {
                 'DotNet' {
                     $pairs = foreach ($number in $Port) { [pscustomobject]@{ Target = $item; Ip = $ip; Port = $number } }
                     foreach ($row in Test-NetworkGraphTcpPortBatch -Pair @($pairs) -Timeout $Timeout) {
-                        & $newRow $item $ip $row.Port $row.Open $row.LatencyMs "[System.Net.Sockets.TcpClient]::new().ConnectAsync('$ip', $($row.Port)), timeout $Timeout"
+                        & $newRow $item $ip $row.Port $row.Open $row.LatencyMs "[System.Net.Sockets.TcpClient]::new([System.Net.Sockets.AddressFamily]::$([System.Net.IPAddress]::Parse($ip).AddressFamily)).ConnectAsync('$ip', $($row.Port)).Wait($Timeout)"
                     }
                 }
             }

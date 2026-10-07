@@ -51,10 +51,10 @@ Describe 'Test-IPAddress' {
         }
     }
 
-    It 'calls an ordinary address Public with no special-use source' {
+    It 'calls an ordinary address Public and cites both data files it is absent from' {
         $result = Test-IPAddress 1.1.1.1
         $result.Scope | Should -Be 'Public'
-        $result.Source | Should -BeNullOrEmpty
+        $result.Source | Should -Match '^special-use\.json pulled \d{4}-\d{2}-\d{2} \(https://www\.iana\.org/assignments/iana-ipv4-special-registry/[^)]+\); cloud-ranges\.json\.gz pulled \d{4}-\d{2}-\d{2} \(https://[^)]+\)$'
     }
 
     It 'classifies an IPv4-mapped IPv6 address as the IPv4 address it carries' {
@@ -72,6 +72,7 @@ Describe 'Test-IPAddress' {
         $key | Should -Not -BeNullOrEmpty
         $result = Test-IPAddress ($key.Split('/')[0])
         $result.Cloud | Should -Be $Cloud
+        $result.Source | Should -Match ('^cloud-ranges\.json\.gz pulled \d{4}-\d{2}-\d{2} \(https://[^)]*' + @{ Azure = 'ServiceTags_Public'; AWS = 'ip-ranges\.amazonaws\.com'; GCP = 'cloud\.json' }[$Cloud] + '[^)]*\)$')
         $result.Service | Should -Not -BeNullOrEmpty
         $result.Asn | Should -Be $Asn
         $result.Owner | Should -Not -BeNullOrEmpty

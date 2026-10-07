@@ -7,7 +7,9 @@ function Test-IPAddress {
     .DESCRIPTION
         Offline. The special-use classes come from data/special-use.json (the IANA special-purpose
         registries of RFC 6890 and the RFCs that add rows, plus the multicast blocks); Source is
-        the RFC of the most specific matching row and SpecialUse its registry name. Scope is that
+        the RFC of the most specific matching row and SpecialUse its registry name. For a cloud
+        address Source cites that cloud's list ('cloud-ranges.json.gz pulled <date> (<url>)'), and
+        for a public one both files it is absent from, in the same form. Scope is that
         row's class, or Public when no row matches.
 
         Cloud, Service, Region, Asn and Owner come from data/cloud-ranges.json.gz (Azure Service
@@ -64,7 +66,9 @@ function Test-IPAddress {
                 IsReserved      = ($scopes -contains 'Reserved') -or ($scopes -contains 'Benchmarking')
                 Scope           = $top ? [string]$top['scope'] : 'Public'
                 SpecialUse      = $top ? [string]$top['name'] : $null
-                Source          = $top ? [string]$top['rfc'] : $null
+                # A cloud verdict cites that cloud's list; a public one both files it is absent
+                # from; a special-use one the RFC that defines the block.
+                Source          = $cloud ? (Get-NetworkGraphDataCitation -Kind CloudRanges -Cloud $cloud.Cloud) : ($top ? [string]$top['rfc'] : ('{0}; {1}' -f (Get-NetworkGraphDataCitation -Kind SpecialUse -Match "ipv$($value.Version)-special"), (Get-NetworkGraphDataCitation -Kind CloudRanges)))
                 Cloud           = $cloud ? $cloud.Cloud : $null
                 Service         = $cloud ? $cloud.Service : $null
                 Region          = $cloud ? $cloud.Region : $null

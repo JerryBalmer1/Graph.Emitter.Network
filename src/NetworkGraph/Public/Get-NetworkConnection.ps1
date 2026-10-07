@@ -83,27 +83,27 @@ function Get-NetworkConnection {
         }
         'ss' {
             # Always both protocols: with only -t or -u, ss drops the Netid column the parser reads.
-            $run = Invoke-NetworkGraphNative -FilePath ss -ArgumentList '-tunap'
-            foreach ($row in ConvertFrom-NetworkGraphSsOutput -Text $run.Output) { $row | Add-Member Source $run.CommandLine -PassThru }
+            $run = Invoke-NetworkGraphNative -FilePath ss -ArgumentList '-tunap' -OkExitCodes 0
+            foreach ($row in ConvertFrom-NetworkGraphSsOutput -Text $run.Output -ExitCode $run.ExitCode) { $row | Add-Member Source $run.CommandLine -PassThru }
         }
         'DotNet' {
             $properties = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties()
-            $note = ' (.NET floor: no process information)'
+            $note = '  # .NET floor: no process information'
             if ('Tcp' -in $Protocol) {
                 foreach ($item in $properties.GetActiveTcpListeners()) {
                     New-NetworkGraphConnectionRow -Protocol Tcp -LocalIp (ConvertTo-NetworkGraphIpValue -Ip $item.Address.ToString() -Unmap).Ip -LocalPort $item.Port -State Listen |
-                        Add-Member Source "[IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners()$note" -PassThru
+                        Add-Member Source "[System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners()$note" -PassThru
                 }
                 foreach ($item in $properties.GetActiveTcpConnections()) {
                     New-NetworkGraphConnectionRow -Protocol Tcp -LocalIp (ConvertTo-NetworkGraphIpValue -Ip $item.LocalEndPoint.Address.ToString() -Unmap).Ip -LocalPort $item.LocalEndPoint.Port `
                         -RemoteIp (ConvertTo-NetworkGraphIpValue -Ip $item.RemoteEndPoint.Address.ToString() -Unmap).Ip -RemotePort $item.RemoteEndPoint.Port -State ([string]$item.State) |
-                        Add-Member Source "[IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpConnections()$note" -PassThru
+                        Add-Member Source "[System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpConnections()$note" -PassThru
                 }
             }
             if ('Udp' -in $Protocol) {
                 foreach ($item in $properties.GetActiveUdpListeners()) {
                     New-NetworkGraphConnectionRow -Protocol Udp -LocalIp (ConvertTo-NetworkGraphIpValue -Ip $item.Address.ToString() -Unmap).Ip -LocalPort $item.Port |
-                        Add-Member Source "[IPGlobalProperties]::GetIPGlobalProperties().GetActiveUdpListeners()$note" -PassThru
+                        Add-Member Source "[System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveUdpListeners()$note" -PassThru
                 }
             }
         }

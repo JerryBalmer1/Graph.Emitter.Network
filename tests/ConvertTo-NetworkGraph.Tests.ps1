@@ -16,8 +16,8 @@ Describe 'ConvertTo-NetworkGraph' {
         Find-Node '172.17.0.0/16@None' | Should -Not -BeNullOrEmpty
         Find-Node '10.0.0.0/24@Azure' | Should -Not -BeNullOrEmpty
         Find-Node 'testhost/route/0.0.0.0/0/172.17.0.1/eth0' | Should -Not -BeNullOrEmpty
-        Find-Node 'hop/1.1.1.1/4' | Should -Not -BeNullOrEmpty
-        Find-Node 'testhost/conn/tcp/0.0.0.0:8080/*' | Should -Not -BeNullOrEmpty
+        Find-Node 'hop/1.1.1.1/tracert/4' | Should -Not -BeNullOrEmpty
+        Find-Node 'testhost/conn/tcp/0.0.0.0:8080/*/1264' | Should -Not -BeNullOrEmpty
         Find-Node 'testhost:1264' | Should -Not -BeNullOrEmpty
         Find-Node '1.1.1.1' | Should -Not -BeNullOrEmpty
         Find-Node 'dns:example.com' | Should -Not -BeNullOrEmpty
@@ -37,16 +37,16 @@ Describe 'ConvertTo-NetworkGraph' {
     }
 
     It 'links connections to processes and remote hosts' {
-        $id = 'testhost/conn/tcp/172.17.0.2:44252/1.1.1.1:443'
+        $id = 'testhost/conn/tcp/172.17.0.2:44252/1.1.1.1:443/1265'
         Test-Edge $id 'testhost:1265' 'OwnedBy' | Should -BeTrue
         Test-Edge $id '1.1.1.1' 'ConnectsTo' | Should -BeTrue
         (Find-Node 'testhost:1265').ProcessName | Should -Be 'sleep'
     }
 
     It 'chains trace hops from the host' {
-        Test-Edge 'testhost' 'hop/1.1.1.1/1' 'HopsTo' | Should -BeTrue
-        Test-Edge 'hop/1.1.1.1/6' 'hop/1.1.1.1/7' 'HopsTo' | Should -BeTrue
-        (Find-Node 'hop/1.1.1.1/4').Name | Should -Be '4 *'
+        Test-Edge 'testhost' 'hop/1.1.1.1/tracert/1' 'HopsTo' | Should -BeTrue
+        Test-Edge 'hop/1.1.1.1/tracert/6' 'hop/1.1.1.1/tracert/7' 'HopsTo' | Should -BeTrue
+        (Find-Node 'hop/1.1.1.1/tracert/4').Name | Should -Be '4 *'
     }
 
     It 'links DNS names to addresses and names' {
@@ -82,8 +82,8 @@ Describe 'ConvertTo-NetworkGraph' {
         It 'reports <Finding> on <NodeId>' -ForEach @(
             @{ Finding = 'BelowCloudMinimum'; NodeId = '10.0.0.0/30@Azure' }
             @{ Finding = 'SubnetOverlap'; NodeId = '10.0.0.0/24@Azure' }
-            @{ Finding = 'WildcardListener'; NodeId = 'testhost/conn/tcp/0.0.0.0:8080/*' }
-            @{ Finding = 'NonCloudPublicConnection'; NodeId = 'testhost/conn/tcp/172.17.0.2:44252/1.1.1.1:443' }
+            @{ Finding = 'WildcardListener'; NodeId = 'testhost/conn/tcp/0.0.0.0:8080/*/1264' }
+            @{ Finding = 'NonCloudPublicConnection'; NodeId = 'testhost/conn/tcp/172.17.0.2:44252/1.1.1.1:443/1265' }
             @{ Finding = 'RouteWithoutInterface'; NodeId = 'testhost/route/10.99.0.0/16/172.17.0.254/-' }
         ) {
             $row = $Graph.Findings | Where-Object { $_.Finding -eq $Finding -and $_.NodeId -eq $NodeId }
@@ -113,6 +113,51 @@ Describe 'ConvertTo-NetworkGraph' {
         $graph.Root | Should -BeNullOrEmpty
         $graph.NodeCount | Should -Be 2
         ($graph.Findings | Where-Object Finding -eq 'SubnetOverlap').Detail | Should -Be '10.0.0.0/24@None Contains 10.0.0.0/25@None.'
+    }
+
+    It 'two sockets sharing an endpoint are two Connection nodes, each owned by its process' {
+        $row = {
+            param($ProcessId, $Name)
+            [pscustomobject]@{ PSTypeName = 'NetworkGraph.Connection'; Protocol = 'Udp'; LocalIp = '0.0.0.0'; LocalPort = 5353; RemoteIp = $null; RemotePort = $null; State = $null; ProcessId = $ProcessId; ProcessName = $Name; Source = 'Get-NetUDPEndpoint' }
+        }
+        $graph = @((& $row 11976 'app-one'), (& $row 52144 'app-two')) | ConvertTo-NetworkGraph -HostName testhost
+        $connections = @($graph.Nodes | Where-Object Kind -eq 'Connection')
+        $connections.Count | Should -Be 2
+        $connections.Id | Should -Be @('testhost/conn/udp/0.0.0.0:5353/*/11976', 'testhost/conn/udp/0.0.0.0:5353/*/52144')
+        @($graph.Edges | Where-Object Kind -ceq 'OwnedBy').Count | Should -Be $connections.Count
+    }
+
+    It 'a native and a .NET trace of the same target are two chains' {
+        $hop = {
+            param($Tool, $Number, $Ip)
+            [pscustomobject]@{ PSTypeName = 'NetworkGraph.Hop'; Target = '1.1.1.1'; Tool = $Tool; Hop = $Number; Ip = $Ip; Host = $null; RttMs = @(5); AvgMs = 5; LossPercent = 0; Responded = $true; Source = "$Tool fixture" }
+        }
+        $graph = @((& $hop tracert 1 '192.0.2.1'), (& $hop tracert 2 '1.1.1.1'), (& $hop DotNet 1 '192.0.2.1'), (& $hop DotNet 2 '1.1.1.1')) | ConvertTo-NetworkGraph -HostName testhost
+        @($graph.Nodes | Where-Object Kind -eq 'Hop').Count | Should -Be 4
+        $edges = @($graph.Edges | Where-Object Kind -ceq 'HopsTo' | ForEach-Object { "$($_.From)>$($_.To)" })
+        $edges | Should -Contain 'testhost>hop/1.1.1.1/tracert/1'
+        $edges | Should -Contain 'hop/1.1.1.1/tracert/1>hop/1.1.1.1/tracert/2'
+        $edges | Should -Contain 'testhost>hop/1.1.1.1/DotNet/1'
+        $edges | Should -Contain 'hop/1.1.1.1/DotNet/1>hop/1.1.1.1/DotNet/2'
+        $edges.Count | Should -Be 4
+    }
+
+    It 'graphs rows that came back from a job (Deserialized.* type names) like the direct rows' {
+        # Get-NetworkConnection on the .NET floor reads this host's socket table in-process (no
+        # tool, no network). The same rows go through Start-Job / Receive-Job, which deserializes them.
+        $rows = @(Get-NetworkConnection -Tool DotNet -Protocol Tcp -State Listen)
+        $back = @(Start-Job -ArgumentList (, $rows) -ScriptBlock { param($Rows) $Rows } | Receive-Job -Wait -AutoRemoveJob)
+        $back[0].PSObject.TypeNames[0] | Should -Be 'Deserialized.NetworkGraph.Connection'
+        $direct = $rows | ConvertTo-NetworkGraph -HostName testhost
+        $viaJob = $back | ConvertTo-NetworkGraph -HostName testhost -WarningVariable skipped -WarningAction SilentlyContinue
+        $skipped | Should -BeNullOrEmpty
+        $viaJob.NodeCount | Should -Be $direct.NodeCount
+        $viaJob.EdgeCount | Should -Be $direct.EdgeCount
+
+        # And the whole fixture input, host container included.
+        $fixtureRows = @(Get-TestGraphInput)
+        $all = @(Start-Job -ArgumentList (, $fixtureRows) -ScriptBlock { param($Rows) $Rows } | Receive-Job -Wait -AutoRemoveJob)
+        ($all | ConvertTo-NetworkGraph -WarningAction SilentlyContinue).NodeCount | Should -Be $Graph.NodeCount
     }
 
     It 'graphs the live connections of this host' -Tag Live -Skip:(-not $env:NETWORKGRAPH_LIVE) {

@@ -15,6 +15,7 @@ InModuleScope NetworkGraph -Parameters @{ Root = $emptyUserRoot } {
     $script:NetworkGraphDataMemo = @{}
     $script:NetworkGraphNativeInvoker = $null
     $script:NetworkGraphWebInvoker = $null
+    $script:NetworkGraphTcpConnector = $null
 }
 
 function Get-Fixture {
@@ -28,20 +29,21 @@ function Get-FixtureJson {
 }
 
 # Makes every native command return fixture text (stdout) with exit code 0, keyed by the command
-# name; a scriptblock value is called with the argument list and returns the text. Records each
-# call in $script:NativeCalls. No real tool runs.
+# name; a scriptblock value is called with the argument list and returns the text. -ExitCode and
+# -ErrorText (stderr) override per command. Records each call in $script:NativeCalls. No real
+# tool runs.
 function Set-NativeFixture {
-    param([Parameter(Mandatory)][hashtable]$Output, [hashtable]$ExitCode = @{})
+    param([Parameter(Mandatory)][hashtable]$Output, [hashtable]$ExitCode = @{}, [hashtable]$ErrorText = @{})
     $script:NativeCalls = [System.Collections.Generic.List[object]]::new()
     $calls = $script:NativeCalls
-    InModuleScope NetworkGraph -Parameters @{ Output = $Output; ExitCode = $ExitCode; Calls = $calls } {
-        param($Output, $ExitCode, $Calls)
+    InModuleScope NetworkGraph -Parameters @{ Output = $Output; ExitCode = $ExitCode; ErrorText = $ErrorText; Calls = $calls } {
+        param($Output, $ExitCode, $ErrorText, $Calls)
         $script:NetworkGraphNativeInvoker = {
             param($FilePath, $ArgumentList)
             $Calls.Add([pscustomobject]@{ FilePath = $FilePath; ArgumentList = $ArgumentList })
             $text = $Output[$FilePath]
             if ($text -is [scriptblock]) { $text = & $text $ArgumentList }
-            [pscustomobject]@{ ExitCode = $ExitCode[$FilePath] ?? 0; Output = $text; Error = ''; TimedOut = $false }
+            [pscustomobject]@{ ExitCode = $ExitCode[$FilePath] ?? 0; Output = $text; Error = $ErrorText[$FilePath] ?? ''; TimedOut = $false }
         }.GetNewClosure()
     }
 }

@@ -60,6 +60,12 @@ Describe 'Get-NetworkNeighbor' {
         { Get-NetworkNeighbor -Tool DotNet } | Should -Throw '*no .NET floor*'
     }
 
+    It 'has no .NET floor on macOS, and says so instead of reading /proc' {
+        InModuleScope NetworkGraph { $script:NetworkGraphPlatform = 'macOS' }
+        try { { Get-NetworkNeighbor -Tool DotNet } | Should -Throw '*no .NET floor on macOS*' }
+        finally { InModuleScope NetworkGraph { $script:NetworkGraphPlatform = $IsWindows ? 'Windows' : ($IsLinux ? 'Linux' : 'macOS') } }
+    }
+
     It 'reads /proc/net/arp with -Tool DotNet on Linux' -Skip:(-not $IsLinux) {
         { Get-NetworkNeighbor -Tool DotNet -IncludeUnresolved } | Should -Not -Throw
     }

@@ -1,7 +1,7 @@
 function ConvertFrom-NetworkGraphMtrJson {
-    # Not exported. mtr --json report to hop rows { Hop, Ip, Host, RttMs, LossPercent }. Structured
-    # output, no regex. RttMs is mtr's average for the hop (mtr reports aggregates, not samples);
-    # a '???' host (no reply) has Ip $null and no RTT. Pinned by tests/fixtures/mtr.linux.json.
+    # Not exported. mtr --json report to hop rows (Complete-NetworkGraphHop shape). Structured
+    # output, no regex. mtr reports aggregates, not samples: its average is AvgMs and RttMs stays
+    # empty; a '???' host (no reply) has Ip $null and no AvgMs. Pinned by tests/fixtures/mtr.linux.json.
     param(
         [Parameter(Mandatory)]
         [AllowEmptyString()]
@@ -10,15 +10,17 @@ function ConvertFrom-NetworkGraphMtrJson {
     )
 
     $report = ($Text | ConvertFrom-Json -AsHashtable)['report']
-    foreach ($hub in @($report['hubs'])) {
+    $rows = foreach ($hub in @($report['hubs'])) {
         $responder = ConvertFrom-NetworkGraphHopText -Text ([string]$hub['host'])
         $answered = $hub['host'] -ne '???'
         [pscustomobject]@{
             Hop         = [int]$hub['count']
             Ip          = $responder.Ip
             Host        = ($answered -and -not $responder.Ip) ? [string]$hub['host'] : $responder.Host
-            RttMs       = $answered ? @([double]$hub['Avg']) : @()
+            RttMs       = @()
+            AvgMs       = $answered ? [double]$hub['Avg'] : $null
             LossPercent = [double]$hub['Loss%']
         }
     }
+    Complete-NetworkGraphHop -Hop @($rows)
 }

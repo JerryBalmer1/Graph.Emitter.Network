@@ -44,7 +44,7 @@ Describe 'Invoke-NetworkScan' {
         It 'connects to every target and port with TcpClient' {
             $rows = @(Invoke-NetworkScan 127.0.0.1 -Port $OpenPort -Tool DotNet)
             $rows.Open | Should -Be @($true)
-            $rows[0].Source | Should -BeLike '*TcpClient*(nmap not used)'
+            $rows[0].Source | Should -BeLike '*TcpClient*.Wait(*)  # * at a time; nmap not used'
         }
 
         It 'expands a CIDR target to its usable addresses' {

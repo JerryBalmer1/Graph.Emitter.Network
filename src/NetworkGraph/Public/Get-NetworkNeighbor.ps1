@@ -7,7 +7,8 @@ function Get-NetworkNeighbor {
     .DESCRIPTION
         Native: Get-NetNeighbor on Windows, ip -j neigh on Linux, and arp -a on either when the
         first is missing. The .NET floor reads /proc/net/arp on Linux (IPv4 only); .NET has no API
-        for the neighbour table, so on Windows -Tool DotNet is a terminating error. Vendor comes
+        for the neighbour table, so on Windows and on macOS (no /proc) -Tool DotNet is a terminating
+        error. Vendor comes
         from Get-MacAddressVendor and is $null for a locally-administered (often randomised) MAC.
 
     .PARAMETER Tool
@@ -33,8 +34,12 @@ function Get-NetworkNeighbor {
         $IncludeUnresolved
     )
 
-    $candidates = $IsWindows ? @('Get-NetNeighbor', 'arp') : @('ip', 'arp')
-    $noDotNet = $IsWindows ? '.NET has no API that reads the neighbour table on Windows.' : $null
+    $candidates = ($script:NetworkGraphPlatform -eq 'Windows') ? @('Get-NetNeighbor', 'arp') : @('ip', 'arp')
+    $noDotNet = switch ($script:NetworkGraphPlatform) {
+        'Windows' { '.NET has no API that reads the neighbour table on Windows.' }
+        'macOS' { 'There is no .NET floor on macOS: the floor reads /proc/net/arp, which exists only on Linux.' }
+        default { $null }
+    }
     $chosen = Resolve-NetworkGraphTool -Tool $Tool -Candidate $candidates -CommandName 'Get-NetworkNeighbor' -NoDotNet $noDotNet
 
     $rows = switch ($chosen) {
@@ -42,16 +47,16 @@ function Get-NetworkNeighbor {
             foreach ($row in ConvertFrom-NetworkGraphNetNeighbor -InputObject @(Get-NetNeighbor -ErrorAction SilentlyContinue)) { $row | Add-Member Source 'Get-NetNeighbor' -PassThru }
         }
         'ip' {
-            $run = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'neigh'
+            $run = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'neigh' -OkExitCodes 0
             foreach ($row in ConvertFrom-NetworkGraphIpNeighJson -Text $run.Output) { $row | Add-Member Source $run.CommandLine -PassThru }
         }
         'arp' {
-            $run = Invoke-NetworkGraphNative -FilePath arp -ArgumentList '-a'
-            foreach ($row in ConvertFrom-NetworkGraphArpOutput -Text $run.Output) { $row | Add-Member Source $run.CommandLine -PassThru }
+            $run = Invoke-NetworkGraphNative -FilePath arp -ArgumentList '-a' -OkExitCodes 0
+            foreach ($row in ConvertFrom-NetworkGraphArpOutput -Text $run.Output -ExitCode $run.ExitCode) { $row | Add-Member Source $run.CommandLine -PassThru }
         }
         'DotNet' {
             $text = [System.IO.File]::ReadAllText('/proc/net/arp')
-            foreach ($row in ConvertFrom-NetworkGraphProcNetArp -Text $text) { $row | Add-Member Source '[System.IO.File]::ReadAllText(''/proc/net/arp'') (.NET floor: IPv4 only)' -PassThru }
+            foreach ($row in ConvertFrom-NetworkGraphProcNetArp -Text $text) { $row | Add-Member Source '[System.IO.File]::ReadAllText(''/proc/net/arp'')  # .NET floor: IPv4 only' -PassThru }
         }
     }
 

@@ -19,9 +19,16 @@ $script:NetworkGraphHarvestKinds = 'SpecialUse', 'CloudRanges', 'Oui', 'Ports'
 # Parsed documents and lookup indexes, keyed by path|ticks|size so a refreshed file is reread.
 $script:NetworkGraphDataMemo = @{}
 
+# The platform the observe commands branch on, and the ufw.conf Get-NetworkHost reads. Tests
+# set both with InModuleScope to exercise another platform's path.
+$script:NetworkGraphPlatform = $IsWindows ? 'Windows' : ($IsLinux ? 'Linux' : ($IsMacOS ? 'macOS' : 'Unknown'))
+$script:NetworkGraphUfwConfPath = '/etc/ufw/ufw.conf'
+
 # Seams the tests replace: every native command and every HTTP request goes through these.
 $script:NetworkGraphNativeInvoker = $null
 $script:NetworkGraphWebInvoker = $null
+# The TCP connect Test-NetworkGraphTcpPortBatch makes; tests replace it to time connects without a network.
+$script:NetworkGraphTcpConnector = $null
 
 # Graph contract: property names per node kind, in order. docs/graph-shape.md documents the same
 # table and Pester asserts the two agree. Edges are From, To, Kind.
@@ -31,7 +38,7 @@ $script:NetworkGraphNodeContract = [ordered]@{
     Interface  = @('InterfaceName', 'Ip', 'PrefixLength', 'MacAddress', 'Vendor', 'Status')
     Subnet     = @('Cidr', 'Cloud', 'PrefixLength', 'Usable', 'BelowCloudMinimum')
     Route      = @('Destination', 'PrefixLength', 'NextHop', 'InterfaceName', 'Metric')
-    Hop        = @('Target', 'Hop', 'Ip', 'RttMs', 'LossPercent')
+    Hop        = @('Target', 'Hop', 'Ip', 'RttMs', 'AvgMs', 'LossPercent', 'Responded')
     Connection = @('Protocol', 'LocalIp', 'LocalPort', 'RemoteIp', 'RemotePort', 'State', 'ProcessId')
     Process    = @('ProcessId', 'ProcessName')
     RemoteHost = @('Ip', 'RemoteHost', 'MacAddress', 'Vendor', 'Cloud', 'Service', 'Asn', 'Owner', 'OpenPorts')
@@ -57,7 +64,7 @@ Update-TypeData -TypeName 'NetworkGraph.SubnetPlan' -DefaultDisplayPropertySet P
 Update-TypeData -TypeName 'NetworkGraph.IPAddressInfo' -DefaultDisplayPropertySet Ip, Version, Scope, Cloud, Service, Source -Force
 Update-TypeData -TypeName 'NetworkGraph.Connection' -DefaultDisplayPropertySet Protocol, LocalIp, LocalPort, RemoteIp, RemotePort, State, ProcessName -Force
 Update-TypeData -TypeName 'NetworkGraph.Port' -DefaultDisplayPropertySet Target, Port, Protocol, Open, Service, LatencyMs -Force
-Update-TypeData -TypeName 'NetworkGraph.Hop' -DefaultDisplayPropertySet Hop, Ip, Host, RttMs, LossPercent -Force
+Update-TypeData -TypeName 'NetworkGraph.Hop' -DefaultDisplayPropertySet Hop, Ip, Host, RttMs, AvgMs, LossPercent, Responded -Force
 Update-TypeData -TypeName 'NetworkGraph.Route' -DefaultDisplayPropertySet Destination, PrefixLength, NextHop, Interface, Metric -Force
 Update-TypeData -TypeName 'NetworkGraph.Neighbor' -DefaultDisplayPropertySet Ip, MacAddress, Vendor, State, Interface -Force
 Update-TypeData -TypeName 'NetworkGraph.Interface' -DefaultDisplayPropertySet Name, Status, Ip, PrefixLength, MacAddress, Gateway -Force
@@ -66,6 +73,8 @@ Update-TypeData -TypeName 'NetworkGraph.Graph' -MemberType ScriptProperty -Membe
 Update-TypeData -TypeName 'NetworkGraph.Graph' -MemberType ScriptProperty -MemberName EdgeCount -Value { @($this.Edges).Count } -Force
 Update-TypeData -TypeName 'NetworkGraph.Graph' -MemberType ScriptProperty -MemberName FindingCount -Value { @($this.Findings).Count } -Force
 Update-TypeData -TypeName 'NetworkGraph.Graph' -DefaultDisplayPropertySet Root, NodeCount, EdgeCount, FindingCount -Force
+
+Write-NetworkGraphPlatformWarning
 
 $manifest = Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot 'NetworkGraph.psd1')
 Export-ModuleMember -Function $manifest.FunctionsToExport

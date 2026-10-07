@@ -8,11 +8,14 @@ function ConvertFrom-NetworkGraphArpOutput {
         [Parameter(Mandatory)]
         [AllowEmptyString()]
         [string]
-        $Text
+        $Text,
+
+        [int]
+        $ExitCode = 0
     )
 
     $interface = $null
-    foreach ($line in $Text -split "`r?`n") {
+    $rows = @(foreach ($line in $Text -split "`r?`n") {
         if ($line -match '^Interface:\s+(\S+)\s+---') { $interface = $Matches[1]; continue }
         if ($line -match '^\s+(\d+(?:\.\d+){3})\s+([0-9a-fA-F]{2}(?:-[0-9a-fA-F]{2}){5})\s+(\w+)\s*$') {
             New-NetworkGraphNeighborRow -Ip $Matches[1] -MacAddress $Matches[2] -State $Matches[3] -Interface $interface
@@ -22,5 +25,7 @@ function ConvertFrom-NetworkGraphArpOutput {
             $mac = $Matches[2]
             New-NetworkGraphNeighborRow -Ip $Matches[1] -MacAddress (($mac -eq '<incomplete>') ? $null : $mac) -State (($mac -eq '<incomplete>') ? 'Incomplete' : $null) -Interface $Matches[3]
         }
-    }
+    })
+    Assert-NetworkGraphRecognised -Tool arp -Text $Text -ExitCode $ExitCode -Count $rows.Count
+    $rows
 }

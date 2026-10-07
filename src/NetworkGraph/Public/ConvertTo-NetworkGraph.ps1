@@ -14,9 +14,9 @@ function ConvertTo-NetworkGraph {
         nothing is looked up on the network.
 
         Node kinds and Ids: Host <hostname>; Interface <host>/if/<name>; Subnet <cidr>@<cloud>;
-        Route <host>/route/<cidr>/<next hop or on-link>/<interface>; Hop hop/<target>/<n>;
-        Connection <host>/conn/<protocol>/<local ip>:<port>/<remote ip>:<port> (IPv6 in [brackets],
-        remote * for a listener); Process
+        Route <host>/route/<cidr>/<next hop or on-link>/<interface>; Hop hop/<target>/<tool>/<n>;
+        Connection <host>/conn/<protocol>/<local ip>:<port>/<remote ip>:<port>[/<pid>] (IPv6 in
+        [brackets], remote * for a listener, /<pid> when the process is known); Process
         <host>:<pid>; RemoteHost <ip>, or dns:<name> for a DNS name; Cloud cloud/<cloud>;
         Asn AS<number>. Observed rows belong to -HostName (default this computer) unless a
         Get-NetworkHost object names the host.
@@ -77,7 +77,8 @@ function ConvertTo-NetworkGraph {
             param($Finding, $NodeId, $RelatedId, $Detail)
             $findings.Add([pscustomobject]@{ PSTypeName = 'NetworkGraph.Finding'; Finding = $Finding; NodeId = $NodeId; RelatedId = $RelatedId; Detail = $Detail })
         }
-        $is = { param($Item, $Type) $Item.PSObject.TypeNames -contains $Type }
+        # Rows that crossed a process boundary (Invoke-Command, a job) carry 'Deserialized.<type>'.
+        $is = { param($Item, $Type) ($Item.PSObject.TypeNames -replace '^(Deserialized\.)+', '') -contains $Type }
 
         $hostItem = $items | Where-Object { & $is $_ 'NetworkGraph.Host' } | Select-Object -First 1
         if ($hostItem) { $HostName = $hostItem.HostName }
@@ -108,6 +109,14 @@ function ConvertTo-NetworkGraph {
             $null = Add-NetworkGraphNode -State $state -Kind RemoteHost -Id $id -Name $Name -Source $Source -Property @{ RemoteHost = $Name }
             $id
         }
+        # A calculated subnet's Source is the command that recalculates it, citing the cloud's
+        # reservation rules when a cloud applies.
+        $subnetSource = {
+            param($Cidr, $Cloud, $Note)
+            $cite = ($Cloud -and $Cloud -ne 'None') ? (Get-NetworkGraphDataCitation -Kind CloudReservations -Cloud $Cloud) : $null
+            $comment = @($Note, $cite) | Where-Object { $_ }
+            "Get-Subnet $Cidr -Cloud $($Cloud ? $Cloud : 'None')" + ($comment ? "  # $($comment -join '; ')" : '')
+        }
         $ensureSubnet = {
             param($Cidr, $Cloud, $Source)
             $prefix = Resolve-NetworkGraphPrefix -Cidr $Cidr
@@ -134,12 +143,12 @@ function ConvertTo-NetworkGraph {
         $skipped = @{}
         foreach ($item in $queue) {
             if (& $is $item 'NetworkGraph.Subnet') {
-                $id = & $ensureSubnet $item.Cidr $item.Cloud 'Get-Subnet'
+                $id = & $ensureSubnet $item.Cidr $item.Cloud (& $subnetSource $item.Cidr $item.Cloud $null)
                 if (& $is $item 'NetworkGraph.PlannedSubnet') {
                     $node = $state.ById[$id]
                     $node.Name = "$($item.Name) $($item.Cidr)"
-                    $node.Source = 'New-SubnetPlan'
-                    $parentId = & $ensureSubnet $item.Parent $item.Cloud 'New-SubnetPlan'
+                    $node.Source = & $subnetSource $item.Cidr $item.Cloud "planned in $($item.Parent) by New-SubnetPlan"
+                    $parentId = & $ensureSubnet $item.Parent $item.Cloud (& $subnetSource $item.Parent $item.Cloud 'parent of a New-SubnetPlan plan')
                     Add-NetworkGraphEdge -State $state -From $parentId -To $id -Kind Contains
                 }
             }
@@ -182,7 +191,9 @@ function ConvertTo-NetworkGraph {
                 $endpoint = { param($Ip, $Port) ($Ip.Contains(':') ? "[$Ip]" : $Ip) + ":$Port" }
                 $local = & $endpoint $item.LocalIp $item.LocalPort
                 $remote = $item.RemoteIp ? (& $endpoint $item.RemoteIp $item.RemotePort) : '*'
-                $id = "$owner/conn/$($item.Protocol.ToLowerInvariant())/$local/$remote"
+                # The PID is part of the Id: sockets that share an endpoint (SO_REUSEADDR, for
+                # example several processes on UDP 0.0.0.0:5353) are separate connections.
+                $id = "$owner/conn/$($item.Protocol.ToLowerInvariant())/$local/$remote" + (($null -ne $item.ProcessId) ? "/$($item.ProcessId)" : '')
                 $null = Add-NetworkGraphNode -State $state -Kind Connection -Id $id -Name "$($item.Protocol) $local -> $remote" -Source $item.Source -Property @{
                     Protocol = $item.Protocol; LocalIp = $item.LocalIp; LocalPort = $item.LocalPort; RemoteIp = $item.RemoteIp; RemotePort = $item.RemotePort; State = $item.State; ProcessId = $item.ProcessId
                 }
@@ -257,13 +268,22 @@ function ConvertTo-NetworkGraph {
         }
         foreach ($type in $skipped.Keys) { Write-Warning "ConvertTo-NetworkGraph skipped $($skipped[$type]) object(s) of type $type, which has no node kind." }
 
-        # Trace hops, chained per target in hop order.
-        foreach ($group in ($hops | Group-Object Target)) {
+        # Trace hops, one chain per target and tool in hop order, so a native and a .NET trace of
+        # the same target stay two chains. A row without Tool takes the first word of its Source.
+        $toolOf = {
+            param($Hop)
+            if ($Hop.PSObject.Properties['Tool'] -and $Hop.Tool) { return [string]$Hop.Tool }
+            $first = ([string]$Hop.Source -split '\s+')[0]
+            ($first -match '^[A-Za-z][\w-]*$') ? $first : 'unknown'
+        }
+        foreach ($group in ($hops | Group-Object { "$($_.Target)|$(& $toolOf $_)" })) {
             $previous = & $ensureHost
             foreach ($hop in ($group.Group | Sort-Object Hop)) {
-                $id = "hop/$($hop.Target)/$($hop.Hop)"
+                $id = "hop/$($hop.Target)/$(& $toolOf $hop)/$($hop.Hop)"
+                $responded = $hop.PSObject.Properties['Responded'] ? [bool]$hop.Responded : [bool]($hop.Ip -or @($hop.RttMs).Count)
                 $null = Add-NetworkGraphNode -State $state -Kind Hop -Id $id -Name ('{0} {1}' -f $hop.Hop, ($hop.Ip ? $hop.Ip : '*')) -Source $hop.Source -Property @{
-                    Target = $hop.Target; Hop = $hop.Hop; Ip = $hop.Ip; RttMs = @($hop.RttMs); LossPercent = $hop.LossPercent
+                    Target = $hop.Target; Hop = $hop.Hop; Ip = $hop.Ip; RttMs = @($hop.RttMs); AvgMs = $hop.PSObject.Properties['AvgMs'] ? $hop.AvgMs : $null
+                    LossPercent = $hop.LossPercent; Responded = $responded
                 }
                 Add-NetworkGraphEdge -State $state -From $previous -To $id -Kind HopsTo
                 $previous = $id
@@ -278,7 +298,7 @@ function ConvertTo-NetworkGraph {
             foreach ($key in 'Cloud', 'Service', 'Asn', 'Owner') { if ($null -eq $node.$key -and $null -ne $info.$key) { $node.$key = $info.$key } }
             if ($node.Cloud) {
                 $cloudId = "cloud/$($node.Cloud)"
-                $null = Add-NetworkGraphNode -State $state -Kind Cloud -Id $cloudId -Name $node.Cloud -Source 'cloud-ranges.json.gz' -Property @{ Cloud = $node.Cloud }
+                $null = Add-NetworkGraphNode -State $state -Kind Cloud -Id $cloudId -Name $node.Cloud -Source (Get-NetworkGraphDataCitation -Kind CloudRanges -Cloud $node.Cloud) -Property @{ Cloud = $node.Cloud }
                 Add-NetworkGraphEdge -State $state -From $node.Id -To $cloudId -Kind BelongsTo
             }
             if ($node.Asn) {

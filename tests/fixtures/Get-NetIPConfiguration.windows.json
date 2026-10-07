@@ -1,7 +1,7 @@
 [
   {
     "InterfaceAlias": "Wi-Fi",
-    "InterfaceDescription": "Killer(R) Wi-Fi 6E AX1675x 160MHz Wireless Network Adapter (210NGW)",
+    "InterfaceDescription": "Wireless Network Adapter",
     "Status": "Up",
     "MacAddress": "04-56-E5-00-00-10",
     "Ip": [
@@ -11,9 +11,9 @@
       "192.168.0.1"
     ],
     "Dns": [
-      "68.105.28.11",
-      "68.105.29.11",
-      "68.105.28.12"
+      "192.0.2.53",
+      "192.0.2.55",
+      "192.0.2.54"
     ]
   },
   {

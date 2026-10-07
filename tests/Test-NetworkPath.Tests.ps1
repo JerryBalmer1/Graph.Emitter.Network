@@ -43,13 +43,25 @@ Describe 'Test-NetworkPath' {
         AfterAll { Clear-NativeFixture }
 
         It 'returns one row with the exact command line as Source' {
-            $row = Test-NetworkPath 1.1.1.1 -Count 3
+            $row = Test-NetworkPath 1.1.1.1 -Count 3 -Tool Native
             $row.Reachable | Should -BeTrue
             $row.Received | Should -Be 3
             $row.LossPercent | Should -Be 0
             $row.AverageMs | Should -BeGreaterThan 0
             $row.Source | Should -Be ($IsWindows ? 'ping -n 3 -w 1000 1.1.1.1' : 'ping -c 3 -W 1 1.1.1.1')
         }
+    }
+
+    It 'on Windows, Auto takes the .NET path even with ping.exe installed (loopback, no tool runs)' -Skip:(-not $IsWindows) {
+        Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'ping' }
+        Set-NativeFixture -Output @{ ping = (Get-Fixture 'ping.windows.txt') }
+        try {
+            $row = Test-NetworkPath 127.0.0.1 -Count 1
+            $row.Source | Should -BeLike '`[System.Net.NetworkInformation.Ping`]*'
+            $NativeCalls.Count | Should -Be 0
+            Should -Invoke Resolve-NetworkGraphTool -ModuleName NetworkGraph -Times 0 -Exactly
+        }
+        finally { Clear-NativeFixture }
     }
 
     It 'reaches loopback with the .NET floor' -Tag Live -Skip:(-not $env:NETWORKGRAPH_LIVE) {

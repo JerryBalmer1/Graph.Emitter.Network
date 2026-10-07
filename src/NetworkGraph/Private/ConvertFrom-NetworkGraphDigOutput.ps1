@@ -7,10 +7,13 @@ function ConvertFrom-NetworkGraphDigOutput {
         [Parameter(Mandatory)]
         [AllowEmptyString()]
         [string]
-        $Text
+        $Text,
+
+        [int]
+        $ExitCode = 0
     )
 
-    foreach ($line in $Text -split "`r?`n") {
+    $rows = @(foreach ($line in $Text -split "`r?`n") {
         if (-not $line.Trim() -or $line.TrimStart().StartsWith(';')) { continue }
         $tokens = @($line -split '\s+' | Where-Object { $_ })
         if ($tokens.Count -lt 5 -or $tokens[1] -notmatch '^\d+$') { continue }
@@ -23,5 +26,7 @@ function ConvertFrom-NetworkGraphDigOutput {
             Data    = $data
             Section = 'Answer'
         }
-    }
+    })
+    Assert-NetworkGraphRecognised -Tool dig -Text $Text -ExitCode $ExitCode -Count $rows.Count
+    $rows
 }

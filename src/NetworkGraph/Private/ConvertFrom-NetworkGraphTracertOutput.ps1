@@ -1,15 +1,18 @@
 function ConvertFrom-NetworkGraphTracertOutput {
-    # Not exported. Windows tracert.exe text to hop rows { Hop, Ip, Host, RttMs, LossPercent }.
+    # Not exported. Windows tracert.exe text to hop rows (Complete-NetworkGraphHop shape).
     # tracert has no structured output: regex, pinned by tests/fixtures/tracert.windows.txt. Each
     # probe column is 'N ms', '<1 ms' (recorded as 0) or '*' (lost). English output only.
     param(
         [Parameter(Mandatory)]
         [AllowEmptyString()]
         [string]
-        $Text
+        $Text,
+
+        [int]
+        $ExitCode = 0
     )
 
-    foreach ($line in $Text -split "`r?`n") {
+    $rows = foreach ($line in $Text -split "`r?`n") {
         $match = [regex]::Match($line, '^\s*(\d+)((?:\s+(?:<?\d+\s+ms|\*))+)\s+(.*?)\s*$')
         if (-not $match.Success) { continue }
         $probes = [regex]::Matches($match.Groups[2].Value, '<?\d+\s+ms|\*')
@@ -29,4 +32,6 @@ function ConvertFrom-NetworkGraphTracertOutput {
             LossPercent = $probes.Count ? [math]::Round(100 * $lost / $probes.Count, 1) : $null
         }
     }
+    Assert-NetworkGraphRecognised -Tool tracert -Text $Text -ExitCode $ExitCode -Count @($rows).Count
+    Complete-NetworkGraphHop -Hop @($rows)
 }
