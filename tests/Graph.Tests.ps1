@@ -69,7 +69,21 @@ Describe 'Graph contract (docs/graph-shape.md)' {
         foreach ($edge in $Graph.Edges) {
             $ids.Contains($edge.From) | Should -BeTrue -Because "edge from $($edge.From)"
             $ids.Contains($edge.To) | Should -BeTrue -Because "edge to $($edge.To)"
-            $edge.Kind | Should -BeIn @('contains', 'routes-to', 'hops-to', 'connects-to', 'owned-by', 'resolves-to', 'belongs-to')
+            @('Contains', 'RoutesTo', 'HopsTo', 'ConnectsTo', 'OwnedBy', 'ResolvesTo', 'BelongsTo') -ccontains $edge.Kind | Should -BeTrue -Because "edge kind '$($edge.Kind)' (case-sensitive)"
+        }
+    }
+
+    It 'edge kinds are PascalCase and the doc table, the module list and TerraformGraph agree' {
+        $section = ($doc -split '(?m)^Edge kinds, From to To:')[1]
+        # The table's rows: from its header to the first line that is not a table row.
+        $rows = @(($section.Trim() -split "`r?`n") | ForEach-Object -Begin { $inTable = $true } -Process { if ($inTable -and $_ -match '^\|') { $_ } else { $inTable = $false } })
+        $documented = @($rows | Select-Object -Skip 2 | ForEach-Object { ($_.Trim('|') -split '\|')[0].Trim() } | Select-Object -Unique)
+        $module = @(InModuleScope NetworkGraph { $script:NetworkGraphEdgeKinds })
+        ($documented -join ',') | Should -BeExactly ($module -join ',')
+        foreach ($kind in $module) { $kind | Should -MatchExactly '^[A-Z][a-z]+([A-Z][a-z]+)*$' }
+        InModuleScope NetworkGraph {
+            $state = [pscustomobject]@{ EdgeKeys = [System.Collections.Generic.HashSet[string]]::new(); Edges = [System.Collections.Generic.List[object]]::new() }
+            { Add-NetworkGraphEdge -State $state -From a -To b -Kind contains } | Should -Throw '*Unknown edge kind*'
         }
     }
 }

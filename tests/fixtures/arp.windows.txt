@@ -30,7 +30,7 @@ Interface: 192.168.0.6 --- 0xf
 
 Interface: 172.31.128.1 --- 0x51
   Internet Address      Physical Address      Type
-  172.31.131.118        00-15-5d-ba-a9-fa     dynamic   
+  172.31.131.118        00-15-5d-00-00-07     dynamic   
   172.31.143.255        ff-ff-ff-ff-ff-ff     static    
   224.0.0.2             01-00-5e-00-00-02     static    
   224.0.0.22            01-00-5e-00-00-16     static    

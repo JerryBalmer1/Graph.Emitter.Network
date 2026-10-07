@@ -1,7 +1,7 @@
 [
   {
     "IPAddress": "172.31.131.118",
-    "LinkLayerAddress": "00-15-5D-BA-A9-FA",
+    "LinkLayerAddress": "00-15-5D-00-00-07",
     "State": "Stale",
     "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",
     "AddressFamily": "IPv4"
@@ -28,7 +28,7 @@
     "AddressFamily": "IPv4"
   },
   {
-    "IPAddress": "fe80::12b6:76ff:feb1:8bdf",
+    "IPAddress": "fe80::12b6:76ff:fe00:4",
     "LinkLayerAddress": "00-00-00-00-00-00",
     "State": "Unreachable",
     "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",

@@ -20,7 +20,7 @@ Describe 'Get-NetworkNeighbor' {
         It 'reads Linux arp -a' {
             $rows = ConvertText 'ConvertFrom-NetworkGraphArpOutput' 'arp.linux.txt'
             $rows.Count | Should -Be 1
-            "$($rows[0].Ip) $($rows[0].MacAddress) $($rows[0].Interface)" | Should -Be '172.17.0.1 76-7E-57-6A-86-15 eth0'
+            "$($rows[0].Ip) $($rows[0].MacAddress) $($rows[0].Interface)" | Should -Be '172.17.0.1 76-7E-57-00-00-21 eth0'
         }
 
         It 'reads ip -j neigh' {
@@ -31,7 +31,7 @@ Describe 'Get-NetworkNeighbor' {
 
         It 'reads /proc/net/arp (the Linux .NET floor)' {
             $rows = ConvertText 'ConvertFrom-NetworkGraphProcNetArp' 'proc-net-arp.linux.txt'
-            "$($rows[0].Ip) $($rows[0].MacAddress) $($rows[0].State)" | Should -Be '172.17.0.1 76-7E-57-6A-86-15 Complete'
+            "$($rows[0].Ip) $($rows[0].MacAddress) $($rows[0].State)" | Should -Be '172.17.0.1 76-7E-57-00-00-21 Complete'
         }
 
         It 'maps Get-NetNeighbor objects; an all-zero MAC is no MAC' {

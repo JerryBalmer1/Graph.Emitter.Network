@@ -2,7 +2,7 @@ function Test-NetworkGraphTcpPortBatch {
     # Not exported. TCP connect tests with System.Net.Sockets.TcpClient, up to -ThrottleLimit at a
     # time, each given -Timeout ms. -Pair takes { Target, Ip, Port } items (Ip already resolved).
     # Returns { Target, Ip, Port, Open, LatencyMs } per pair: Open $true on connect, $false on
-    # refusal or timeout. Pure .NET; used by Test-NetworkPort -Tool DotNet and by
+    # refusal or timeout. Pure .NET; used by Test-NetworkPort (-Tool Auto and DotNet) and by
     # Invoke-NetworkScan when nmap is not installed.
     param(
         [Parameter(Mandatory)]

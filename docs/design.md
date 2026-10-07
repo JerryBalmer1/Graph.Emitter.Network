@@ -71,3 +71,15 @@ An interface address makes a Subnet node `<prefix>@None`, except loopback, link-
 ## 17. ASN and owner
 
 `Asn` and `Owner` on a cloud address are the cloud's primary network as PeeringDB lists it (8075, 16509, 15169), stored in cloud-ranges.json. They are not the BGP origin of that prefix; the module does no BGP lookup. RDAP reports an ASN only when the registry includes it (ARIN's `arin_originas0_originautnums`, often empty).
+
+## 18. Test-NetworkPort: Auto is the .NET path (2026-10-07)
+
+Supersedes the Test-NetworkPort half of note 6. `Test-NetworkPort -Tool Auto` uses the TcpClient path, not the native tool: Test-NetConnection ignores `-Timeout` and spends about 20 seconds on a filtered port, so a check meant to take `-Timeout` milliseconds took twenty seconds per port. `-Tool Native` still runs Test-NetConnection (Windows) or nc (Linux). `Invoke-NetworkScan` without nmap still calls the batch helper directly, now for a different reason: its `-ThrottleLimit` spans every target and port at once, where Test-NetworkPort batches one target at a time. Its UDP path no longer forces `-Tool DotNet`, since Auto means the same.
+
+## 19. Graph: edge kinds are PascalCase (2026-10-07)
+
+Supersedes note 13. Edge kinds are `Contains`, `RoutesTo`, `HopsTo`, `ConnectsTo`, `OwnedBy`, `ResolvesTo`, `BelongsTo`, matching TerraformGraph, and `Add-NetworkGraphEdge` compares them case-sensitively. The two remaining differences (Findings as a list, the Source node property) are TerraformGraph's to close; see docs/graph-shape.md.
+
+## 20. Fixture scrub, second pass (2026-10-07)
+
+Note 9's scrub missed some values; the rule is now written down in CLAUDE.md and enforced by Pester. Changed: the Hyper-V MACs `00-15-5D-...` in Get-NetNeighbor.windows.json, arp.windows.txt and Get-NetIPConfiguration.windows.json and the container MACs in arp.linux.txt, ip-neigh.linux.json, proc-net-arp.linux.txt and ip-addr.linux.json had their device half replaced with `00-00-nn`; the EUI-64 link-local address `fe80::12b6:76ff:fe..` in Get-NetNeighbor.windows.json, which carried the original device half of `10-b6-76-00-00-04`, now ends `fe00:4`; and the address rdap-arin.json was queried for, the capturing host's external address, is now 203.0.113.7 (the address the test asks RDAP about). The registry's own network (MSFT, 20.33.0.0 to 20.128.255.255) is public data and stays.

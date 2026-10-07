@@ -54,8 +54,18 @@ Wrap installed tools, never ship a binary, never add anything whose purpose is e
 - Every observe command: native tool when present, a .NET floor when not, `-Tool Auto|Native|DotNet` (ValidateSet) to force one; a command with no floor on a platform says so in its terminating error (Get-NetworkNeighbor on Windows).
 - Every row has `Source`: the tool and exact command line (or .NET call) that produced it. Floors that lack a field say so in Source ("no process information").
 - Native commands go through `Invoke-NetworkGraphNative` (the only process launcher; tests replace `$script:NetworkGraphNativeInvoker`) and HTTP through `Invoke-NetworkGraphWebRequest` (HTTPS only; tests replace `$script:NetworkGraphWebInvoker`).
-- Parse structured output where the tool offers it (`ip -j`, `mtr --json`, `nmap -oX`, cmdlet objects). Regex only as the last resort, and every regex parser is pinned by a fixture test per platform. Fixtures are real output captured from the tool (`tests/fixtures/<tool>.<os>.txt`), never invented; scrub personal data (MAC device bytes, public addresses) without changing the format, and say so. CI never calls a tool: tests that touch the real network or tools are tagged `Live` and skip unless `NETWORKGRAPH_LIVE` is set (`$env:NETWORKGRAPH_LIVE = 1; Invoke-Pester -Path .\tests -TagFilter Live`).
+- Parse structured output where the tool offers it (`ip -j`, `mtr --json`, `nmap -oX`, cmdlet objects). Regex only as the last resort, and every regex parser is pinned by a fixture test per platform. Fixtures are real output captured from the tool (`tests/fixtures/<tool>.<os>.txt`), never invented, and scrubbed by the fixture scrub rule below. CI never calls a tool: tests that touch the real network or tools are tagged `Live` and skip unless `NETWORKGRAPH_LIVE` is set (`$env:NETWORKGRAPH_LIVE = 1; Invoke-Pester -Path .\tests -TagFilter Live`).
 - Windows and Linux are supported; macOS is untested and docs say so.
+
+## Fixture scrub rule
+
+A fixture captured from a real host is scrubbed before it is saved, without changing its format (column alignment, JSON shape, compression of IPv6 addresses):
+
+- Every LAN MAC keeps its vendor half (the first three bytes) and has its device half replaced with `00-00-nn` (`00:00:nn`), `nn` a sequence number so distinct devices stay distinct. That includes MACs embedded in EUI-64 IPv6 addresses (`...ff:fe..`). Broadcast, multicast and all-zero MACs name no device and stay.
+- Every public IP that belongs to the capturing host (its external address, its own global IPv6 addresses, and the address an RDAP or similar lookup was made for) is replaced with a documentation address: 192.0.2.0/24, 198.51.100.0/24 or 203.0.113.0/24 (RFC 5737), 2001:db8::/32 (RFC 3849). Addresses of other parties (1.1.1.1, a remote peer, a registry's own network) stay.
+- Host names that identify a person or a site (a computer name, a user name, a home or office domain) are replaced with neutral ones (`testhost`, `example.com`).
+
+Say what was scrubbed in docs/design.md. Pester "no fixture file contains the capturing host's external address (read from rdap-arin.json)" and "no fixture MAC has a device half other than 00-00-nn, in MAC form or inside an EUI-64 IPv6 address" enforce the first two.
 
 ## Data, and promote or leave
 

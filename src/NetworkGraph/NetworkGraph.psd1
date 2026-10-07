@@ -4,7 +4,7 @@
     GUID              = '5d0f6c3e-8a4b-4f61-9e2a-1c7b3d9a6e40'
     Author            = 'Jerry Balmer'
     CompanyName       = 'Jerry Balmer'
-    Copyright         = '(c) Jerry Balmer. All rights reserved.'
+    Copyright         = '(c) 2026 Jerry Balmer. Licensed under the Apache License, Version 2.0.'
     Description       = 'Subnet math with cloud reservations, auditable wrappers over the network tools already installed, and a graph of what a host can see.'
     PowerShellVersion = '7.4'
     # Group 1 calculate (Subnet, IPAddress, MacAddress nouns), group 2 observe (Network* and

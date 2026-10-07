@@ -73,13 +73,13 @@ MAC vendors: Windows, iOS and Android randomise the MAC address they show each n
 
 ## Observe
 
-Each observe command uses the native tool when it is installed, falls back to a .NET floor when it is not, and takes `-Tool Auto|Native|DotNet` to force one. Every row has a `Source` property naming the tool and the exact command line that produced it, so output can be checked by hand.
+Each observe command uses the native tool when it is installed, falls back to a .NET floor when it is not, and takes `-Tool Auto|Native|DotNet` to force one. The exception is `Test-NetworkPort`, whose Auto is the .NET path because Test-NetConnection ignores `-Timeout` and spends about 20 seconds on a filtered port. Every row has a `Source` property naming the tool and the exact command line that produced it, so output can be checked by hand.
 
 | Command | Windows native | Linux native | .NET floor |
 |---|---|---|---|
 | `Test-NetworkPath` | ping.exe | ping | `Ping` |
 | `Trace-NetworkPath` | tracert, or pathping with `-NativeTool pathping` | mtr --json, else traceroute | TTL-stepped `Ping` |
-| `Test-NetworkPort` | Test-NetConnection | nc -z | `TcpClient` (honours `-Timeout`) |
+| `Test-NetworkPort` | Test-NetConnection (`-Tool Native` only) | nc -z (`-Tool Native` only) | `TcpClient` (honours `-Timeout`; what Auto uses) |
 | `Get-NetworkConnection` | Get-NetTCPConnection, Get-NetUDPEndpoint | ss -tunap | `IPGlobalProperties` (no process) |
 | `Get-NetworkNeighbor` | Get-NetNeighbor, else arp -a | ip -j neigh, else arp -a | /proc/net/arp (Linux only) |
 | `Get-NetworkRoute` | Get-NetRoute | ip -j route | derived from interface addresses |
@@ -102,7 +102,7 @@ $graph.Nodes | Group-Object Kind
 $graph.Findings | Format-Table Finding, NodeId, Detail
 ```
 
-Nodes (Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn), edges (contains, routes-to, hops-to, connects-to, owned-by, resolves-to, belongs-to) and findings (SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface). The property names match TerraformGraph's `ConvertTo-TerraformResourceGraph`; [docs/graph-shape.md](docs/graph-shape.md) is the contract.
+Nodes (Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn), edges (Contains, RoutesTo, HopsTo, ConnectsTo, OwnedBy, ResolvesTo, BelongsTo) and findings (SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface). The property names match TerraformGraph's `ConvertTo-TerraformResourceGraph`; [docs/graph-shape.md](docs/graph-shape.md) is the contract.
 
 ## Data
 
@@ -137,4 +137,6 @@ Invoke-Build UpdateData # harvest, then promote to src/NetworkGraph/data
 Invoke-Build CheckData  # every data file sourced and within its maximum age
 ```
 
-`manual-check-list.md` holds the paste-and-check steps. MIT licensed.
+`manual-check-list.md` holds the paste-and-check steps.
+
+Licensed under the Apache License, Version 2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)).

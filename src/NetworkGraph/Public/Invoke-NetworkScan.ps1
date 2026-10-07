@@ -126,9 +126,11 @@ function Invoke-NetworkScan {
         }
 
         if ($Protocol -eq 'Udp') {
-            foreach ($entry in $hosts) { Test-NetworkPort -Target $entry.Ip -Port $Port -Protocol Udp -Timeout $Timeout -Tool DotNet | ForEach-Object { $_.Target = $entry.Target; $_ } }
+            foreach ($entry in $hosts) { Test-NetworkPort -Target $entry.Ip -Port $Port -Protocol Udp -Timeout $Timeout | ForEach-Object { $_.Target = $entry.Target; $_ } }
             return
         }
+        # TCP goes to the batch helper rather than Test-NetworkPort so that -ThrottleLimit spans
+        # every target and port at once; Test-NetworkPort batches one target at a time.
         $pairs = foreach ($entry in $hosts) { foreach ($number in $Port) { [pscustomobject]@{ Target = $entry.Target; Ip = $entry.Ip; Port = $number } } }
         foreach ($row in Test-NetworkGraphTcpPortBatch -Pair @($pairs) -Timeout $Timeout -ThrottleLimit $ThrottleLimit) {
             [pscustomobject]@{

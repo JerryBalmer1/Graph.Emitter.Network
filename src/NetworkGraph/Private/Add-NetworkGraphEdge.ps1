@@ -1,6 +1,6 @@
 function Add-NetworkGraphEdge {
     # Not exported. Adds one edge { From, To, Kind } to -State unless the same triple is there;
-    # Kind must be one of $script:NetworkGraphEdgeKinds.
+    # Kind must be one of $script:NetworkGraphEdgeKinds, case included (PascalCase, as TerraformGraph).
     param(
         [Parameter(Mandatory)]
         $State,
@@ -18,7 +18,7 @@ function Add-NetworkGraphEdge {
         $Kind
     )
 
-    if ($Kind -notin $script:NetworkGraphEdgeKinds) { throw [System.ArgumentException]::new("Unknown edge kind '$Kind'.") }
+    if ($Kind -cnotin $script:NetworkGraphEdgeKinds) { throw [System.ArgumentException]::new("Unknown edge kind '$Kind'.") }
     if (-not $State.EdgeKeys.Add("$From|$To|$Kind")) { return }
     $State.Edges.Add([pscustomobject]@{
             PSTypeName = 'NetworkGraph.Edge'

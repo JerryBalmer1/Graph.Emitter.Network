@@ -88,7 +88,7 @@ function Get-TestGraphInput {
         $row | Add-Member Target '1.1.1.1'
         & $typed $row 'NetworkGraph.Hop' 'tracert -d -h 12 -w 2000 1.1.1.1'
     }
-    $neighbors = [pscustomobject]@{ PSTypeName = 'NetworkGraph.Neighbor'; Ip = '172.17.0.1'; MacAddress = '76-7E-57-6A-86-15'; Vendor = $null; State = 'Reachable'; Interface = 'eth0'; Source = 'ip -j neigh' }
+    $neighbors = [pscustomobject]@{ PSTypeName = 'NetworkGraph.Neighbor'; Ip = '172.17.0.1'; MacAddress = '76-7E-57-00-00-21'; Vendor = $null; State = 'Reachable'; Interface = 'eth0'; Source = 'ip -j neigh' }
     $dns = foreach ($row in InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'dig.linux.txt') } { param($T) ConvertFrom-NetworkGraphDigOutput -Text $T }) {
         $row | Add-Member Query (($row.Type -eq 'PTR') ? '1.1.1.1' : $row.Name)
         & $typed $row 'NetworkGraph.DnsRecord' 'dig +noall +answer'

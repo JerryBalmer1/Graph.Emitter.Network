@@ -19,10 +19,12 @@ The names match what `ConvertTo-TerraformResourceGraph` in TerraformGraph (`C:\_
 | `Skipped`, `Providers`, `MatchedCount`, `UnmatchedCount` | none | Terraform-only |
 | node `File`, `Line`, `Block` (where the node came from) | node `Source` (the tool and command line, or data file) | different name for the same role |
 
-Differences a shared renderer has to know:
+Edge `Kind` values are PascalCase, as in TerraformGraph (`Contains`, `RoutesTo`, `HopsTo`, `ConnectsTo`, `OwnedBy`, `ResolvesTo`, `BelongsTo`). 0.1.0 used lower-case hyphenated kinds (`contains`, `routes-to`, ...); they were renamed on 2026-10-07 and are now compared case-sensitively, so `contains` is no longer a kind.
 
-- Edge `Kind` values. TerraformGraph uses PascalCase (`InstanceOf`, `Contains`, `Reference`); NetworkGraph uses the lower-case hyphenated kinds the module spec names (`contains`, `routes-to`, ...). Property names are identical; values differ in case. Compare case-insensitively, or map `contains` to `Contains`.
-- `Findings` is a count in TerraformGraph and a list here. Code that reads `$graph.Findings` as a number should read `FindingCount` on a NetworkGraph graph.
+Differences a shared renderer has to know, as of 2026-10-07. Both are TerraformGraph's to close: TerraformGraph will adopt the NetworkGraph shape, and NetworkGraph keeps both as they are.
+
+- `Findings` is a count in TerraformGraph and a list here. Code that reads `$graph.Findings` as a number should read `FindingCount` on a NetworkGraph graph. TerraformGraph will make `Findings` the list of rows and add `FindingCount`.
+- Where a node came from is `File`, `Line`, `Block` in TerraformGraph and `Source` here. TerraformGraph will add `Source`.
 
 ## Node properties
 
@@ -55,19 +57,19 @@ Edge kinds, From to To:
 
 | Kind | From | To |
 |---|---|---|
-| contains | Host | Interface, Process, Connection, Route (when the route names no interface) |
-| contains | Interface | Route |
-| contains | Subnet | Interface (an address of the interface is in the subnet), Subnet (a New-SubnetPlan child) |
-| routes-to | Route | RemoteHost (its next hop) |
-| routes-to | Host | RemoteHost (its external address, Get-ExternalIpAddress) |
-| hops-to | Host | first Hop of a trace |
-| hops-to | Hop | next Hop |
-| connects-to | Connection | RemoteHost |
-| connects-to | Interface | RemoteHost (a neighbour seen on that interface) |
-| owned-by | Connection | Process |
-| resolves-to | RemoteHost `dns:<name>` | RemoteHost `<ip>` (A, AAAA) or `dns:<name>` (CNAME) |
-| resolves-to | RemoteHost `<ip>` | RemoteHost `dns:<name>` (PTR) |
-| belongs-to | RemoteHost | Cloud, Asn |
+| Contains | Host | Interface, Process, Connection, Route (when the route names no interface) |
+| Contains | Interface | Route |
+| Contains | Subnet | Interface (an address of the interface is in the subnet), Subnet (a New-SubnetPlan child) |
+| RoutesTo | Route | RemoteHost (its next hop) |
+| RoutesTo | Host | RemoteHost (its external address, Get-ExternalIpAddress) |
+| HopsTo | Host | first Hop of a trace |
+| HopsTo | Hop | next Hop |
+| ConnectsTo | Connection | RemoteHost |
+| ConnectsTo | Interface | RemoteHost (a neighbour seen on that interface) |
+| OwnedBy | Connection | Process |
+| ResolvesTo | RemoteHost `dns:<name>` | RemoteHost `<ip>` (A, AAAA) or `dns:<name>` (CNAME) |
+| ResolvesTo | RemoteHost `<ip>` | RemoteHost `dns:<name>` (PTR) |
+| BelongsTo | RemoteHost | Cloud, Asn |
 
 ## Findings
 

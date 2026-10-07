@@ -2,7 +2,7 @@ BeforeAll {
     . (Join-Path $PSScriptRoot 'TestSetup.ps1')
     $script:Graph = Get-TestGraphInput | ConvertTo-NetworkGraph -WarningAction SilentlyContinue
     function Find-Node([string]$Id) { $Graph.Nodes | Where-Object Id -eq $Id }
-    function Test-Edge([string]$From, [string]$To, [string]$Kind) { [bool]($Graph.Edges | Where-Object { $_.From -eq $From -and $_.To -eq $To -and $_.Kind -eq $Kind }) }
+    function Test-Edge([string]$From, [string]$To, [string]$Kind) { [bool]($Graph.Edges | Where-Object { $_.From -eq $From -and $_.To -eq $To -and $_.Kind -ceq $Kind }) }
 }
 
 Describe 'ConvertTo-NetworkGraph' {
@@ -29,36 +29,36 @@ Describe 'ConvertTo-NetworkGraph' {
         Find-Node '127.0.0.0/8@None' | Should -BeNullOrEmpty
     }
 
-    It 'links host, interface, subnet and route with contains and routes-to' {
-        Test-Edge 'testhost' 'testhost/if/eth0' 'contains' | Should -BeTrue
-        Test-Edge '172.17.0.0/16@None' 'testhost/if/eth0' 'contains' | Should -BeTrue
-        Test-Edge 'testhost/if/eth0' 'testhost/route/0.0.0.0/0/172.17.0.1/eth0' 'contains' | Should -BeTrue
-        Test-Edge 'testhost/route/0.0.0.0/0/172.17.0.1/eth0' '172.17.0.1' 'routes-to' | Should -BeTrue
+    It 'links host, interface, subnet and route with Contains and RoutesTo' {
+        Test-Edge 'testhost' 'testhost/if/eth0' 'Contains' | Should -BeTrue
+        Test-Edge '172.17.0.0/16@None' 'testhost/if/eth0' 'Contains' | Should -BeTrue
+        Test-Edge 'testhost/if/eth0' 'testhost/route/0.0.0.0/0/172.17.0.1/eth0' 'Contains' | Should -BeTrue
+        Test-Edge 'testhost/route/0.0.0.0/0/172.17.0.1/eth0' '172.17.0.1' 'RoutesTo' | Should -BeTrue
     }
 
     It 'links connections to processes and remote hosts' {
         $id = 'testhost/conn/tcp/172.17.0.2:44252/1.1.1.1:443'
-        Test-Edge $id 'testhost:1265' 'owned-by' | Should -BeTrue
-        Test-Edge $id '1.1.1.1' 'connects-to' | Should -BeTrue
+        Test-Edge $id 'testhost:1265' 'OwnedBy' | Should -BeTrue
+        Test-Edge $id '1.1.1.1' 'ConnectsTo' | Should -BeTrue
         (Find-Node 'testhost:1265').ProcessName | Should -Be 'sleep'
     }
 
     It 'chains trace hops from the host' {
-        Test-Edge 'testhost' 'hop/1.1.1.1/1' 'hops-to' | Should -BeTrue
-        Test-Edge 'hop/1.1.1.1/6' 'hop/1.1.1.1/7' 'hops-to' | Should -BeTrue
+        Test-Edge 'testhost' 'hop/1.1.1.1/1' 'HopsTo' | Should -BeTrue
+        Test-Edge 'hop/1.1.1.1/6' 'hop/1.1.1.1/7' 'HopsTo' | Should -BeTrue
         (Find-Node 'hop/1.1.1.1/4').Name | Should -Be '4 *'
     }
 
     It 'links DNS names to addresses and names' {
-        Test-Edge 'dns:example.com' '104.20.23.154' 'resolves-to' | Should -BeTrue
-        Test-Edge 'dns:www.microsoft.com' 'dns:www.microsoft.com-c-3.edgekey.net' 'resolves-to' | Should -BeTrue
-        Test-Edge '1.1.1.1' 'dns:one.one.one.one' 'resolves-to' | Should -BeTrue
+        Test-Edge 'dns:example.com' '104.20.23.154' 'ResolvesTo' | Should -BeTrue
+        Test-Edge 'dns:www.microsoft.com' 'dns:www.microsoft.com-c-3.edgekey.net' 'ResolvesTo' | Should -BeTrue
+        Test-Edge '1.1.1.1' 'dns:one.one.one.one' 'ResolvesTo' | Should -BeTrue
     }
 
     It 'links a cloud address to its cloud and ASN' {
         $remote = $Graph.Nodes | Where-Object { $_.Kind -eq 'RemoteHost' -and $_.Cloud -eq 'Azure' } | Select-Object -First 1
-        Test-Edge $remote.Id 'cloud/Azure' 'belongs-to' | Should -BeTrue
-        Test-Edge $remote.Id 'AS8075' 'belongs-to' | Should -BeTrue
+        Test-Edge $remote.Id 'cloud/Azure' 'BelongsTo' | Should -BeTrue
+        Test-Edge $remote.Id 'AS8075' 'BelongsTo' | Should -BeTrue
     }
 
     It 'merges open ports and names into the remote host' {
@@ -68,13 +68,13 @@ Describe 'ConvertTo-NetworkGraph' {
     }
 
     It 'links a neighbour to its interface and the external address to the host' {
-        Test-Edge 'testhost/if/eth0' '172.17.0.1' 'connects-to' | Should -BeTrue
-        Test-Edge 'testhost' '203.0.113.7' 'routes-to' | Should -BeTrue
+        Test-Edge 'testhost/if/eth0' '172.17.0.1' 'ConnectsTo' | Should -BeTrue
+        Test-Edge 'testhost' '203.0.113.7' 'RoutesTo' | Should -BeTrue
         (Find-Node 'AS64496').Owner | Should -Be 'Example Networks'
     }
 
     It 'nests a plan''s subnets under the parent and does not call that an overlap' {
-        Test-Edge '10.0.0.0/22@Azure' '10.0.0.0/24@Azure' 'contains' | Should -BeTrue
+        Test-Edge '10.0.0.0/22@Azure' '10.0.0.0/24@Azure' 'Contains' | Should -BeTrue
         $Graph.Findings | Where-Object { $_.Finding -eq 'SubnetOverlap' -and $_.NodeId -eq '10.0.0.0/22@Azure' -and $_.RelatedId -eq '10.0.0.0/24@Azure' } | Should -BeNullOrEmpty
     }
 

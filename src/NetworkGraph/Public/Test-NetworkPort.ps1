@@ -4,10 +4,10 @@ function Test-NetworkPort {
         Tests whether a TCP (or UDP) port answers: the telnet replacement.
 
     .DESCRIPTION
-        Native: Test-NetConnection -Port on Windows (TCP only; it ignores -Timeout and can take
-        about 20 seconds on a filtered port); nc -z -v on Linux. The .NET floor connects with
-        System.Net.Sockets.TcpClient, honours -Timeout and measures LatencyMs; the other tools
-        leave LatencyMs $null.
+        Auto uses the .NET path, System.Net.Sockets.TcpClient, which honours -Timeout and measures
+        LatencyMs. The native tools are still there by name with -Tool Native: Test-NetConnection
+        -Port on Windows (TCP only; it ignores -Timeout and can take about 20 seconds on a filtered
+        port), nc -z -v on Linux. They leave LatencyMs $null.
 
         UDP has no handshake. The .NET floor sends one empty datagram and listens: a reply is Open
         $true, an ICMP port-unreachable is $false, silence is $null (open or filtered, unknown).
@@ -28,7 +28,8 @@ function Test-NetworkPort {
         Milliseconds per attempt. Default 2000.
 
     .PARAMETER Tool
-        Auto (native when installed, else .NET), Native, or DotNet.
+        Auto (the .NET TcpClient path; see the description), Native (Test-NetConnection on
+        Windows, nc on Linux), or DotNet.
 
     .EXAMPLE
         Test-NetworkPort github.com -Port 22, 443 -Tool DotNet
@@ -63,8 +64,11 @@ function Test-NetworkPort {
     )
 
     begin {
+        # Auto is the .NET TcpClient path, not the native tool: Test-NetConnection ignores -Timeout
+        # and spends about 20 s on a filtered port, so a port check that should take -Timeout ms
+        # would take twenty seconds per port. -Tool Native still runs Test-NetConnection or nc.
         $candidates = $IsWindows ? @('Test-NetConnection') : @('nc')
-        $chosen = Resolve-NetworkGraphTool -Tool $Tool -Candidate $candidates -CommandName 'Test-NetworkPort'
+        $chosen = ($Tool -eq 'Auto') ? 'DotNet' : (Resolve-NetworkGraphTool -Tool $Tool -Candidate $candidates -CommandName 'Test-NetworkPort')
         $newRow = {
             param($Target, $Ip, $Port, $Open, $LatencyMs, $Source)
             [pscustomobject]@{

@@ -20,7 +20,7 @@
     "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",
     "InterfaceDescription": "Hyper-V Virtual Ethernet Adapter",
     "Status": "Up",
-    "MacAddress": "00-15-5D-92-DE-1C",
+    "MacAddress": "00-15-5D-00-00-12",
     "Ip": [
       "172.31.128.1/20",
       "fe80::1/64"

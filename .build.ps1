@@ -85,7 +85,7 @@ task Analyze {
 }
 
 # One-file module in dist/NetworkGraph/<version>: the psm1 region that dot-sources Private/ and
-# Public/ is replaced with their contents; manifest, data, skills and LICENSE are copied as is.
+# Public/ is replaced with their contents; manifest, data, skills, LICENSE and NOTICE are copied as is.
 task Assemble {
     $root = Get-ModuleRoot
     $version = Get-ManifestVersion
@@ -107,7 +107,7 @@ task Assemble {
     Copy-Item (Join-Path $root 'NetworkGraph.psd1') $out
     Copy-Item (Join-Path $root 'data') $out -Recurse
     Copy-Item (Join-Path $root 'skills') $out -Recurse
-    Copy-Item (Join-Path $PSScriptRoot 'LICENSE') $out
+    Copy-Item (Join-Path $PSScriptRoot 'LICENSE'), (Join-Path $PSScriptRoot 'NOTICE') $out
 
     exec { pwsh -NoProfile -Command "`$m = Import-Module '$out\NetworkGraph.psd1' -PassThru -ErrorAction Stop; '{0} {1}: {2} commands' -f `$m.Name, `$m.Version, `$m.ExportedFunctions.Count" }
     Write-Host "Assembled $out"

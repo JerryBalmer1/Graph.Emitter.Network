@@ -46,6 +46,23 @@ Describe 'Module' {
                 Where-Object FullName -notmatch '[\\/](\.git|dist)[\\/]').Count | Should -Be 0
     }
 
+    It 'LICENSE is the Apache License 2.0: its first non-blank line contains "Apache License"' {
+        # The apache.org text is kept verbatim, and it opens with a blank line.
+        $first = @(Get-Content -Path (Join-Path $RepoRoot 'LICENSE') | Where-Object { $_.Trim() })[0]
+        $first | Should -BeLike '*Apache License*'
+        Get-Content -Raw (Join-Path $RepoRoot 'NOTICE') | Should -BeLike '*Copyright 2026 Jerry Balmer*'
+        $Manifest.Copyright | Should -BeLike '*Apache License, Version 2.0*'
+    }
+
+    It 'psd1 LicenseUri resolves to a tracked file' -Skip:(-not (Test-Path (Join-Path (Split-Path -Parent $PSScriptRoot) '.git'))) {
+        $data = $Manifest.PrivateData.PSData
+        $prefix = "$($data.ProjectUri)/blob/main/"
+        $data.LicenseUri | Should -BeLike "$prefix*"
+        $relative = $data.LicenseUri.Substring($prefix.Length)
+        Test-Path -LiteralPath (Join-Path $RepoRoot $relative) -PathType Leaf | Should -BeTrue
+        @(git -C $RepoRoot ls-files -- $relative) | Should -Be @($relative)
+    }
+
     It 'has comment-based help with a synopsis and an example for every exported function' {
         foreach ($name in $Manifest.FunctionsToExport) {
             $help = Get-Help $name -Full
@@ -99,5 +116,55 @@ Describe 'Argument completion' {
         $lines[0] -split ',' | Should -Be @('RemoveModule', 'ImportModule', 'Test', 'Analyze', 'Assemble', 'UpdateData', 'CheckData', '.')
         $lines[1] | Should -Be 'CheckData'
         $lines[2] | Should -Be 'UpdateData'
+    }
+}
+
+Describe 'Fixture scrubbing (CLAUDE.md, "Fixture scrub rule")' {
+    BeforeAll {
+        $script:FixtureFiles = @(Get-ChildItem -Path $Fixtures -File)
+        # The capturing host's registry network: rdap-arin.json was captured for the host's own
+        # external address, so the address it was queried for must now be a documentation
+        # address, and no other fixture may hold any address in the network the registry returned.
+        $rdap = Get-Fixture 'rdap-arin.json' | ConvertFrom-Json -AsHashtable
+        $script:RdapQueried = @($rdap['links'] | ForEach-Object { ($_['value'] -split '/ip/')[-1] } | Select-Object -Unique)
+        $script:HostNetwork = InModuleScope NetworkGraph -Parameters @{ Start = $rdap['startAddress']; End = $rdap['endAddress'] } {
+            param($Start, $End)
+            [pscustomobject]@{ First = (ConvertTo-NetworkGraphIpValue -Ip $Start).Value; Last = (ConvertTo-NetworkGraphIpValue -Ip $End).Value }
+        }
+    }
+
+    It 'no fixture file contains the capturing host''s external address (read from rdap-arin.json)' {
+        $RdapQueried.Count | Should -Be 1
+        (Test-IPAddress $RdapQueried[0]).IsDocumentation | Should -BeTrue -Because 'the host address in rdap-arin.json is replaced with an RFC 5737 / 3849 address'
+        foreach ($file in $FixtureFiles | Where-Object Name -ne 'rdap-arin.json') {
+            $text = [System.IO.File]::ReadAllText($file.FullName)
+            foreach ($match in [regex]::Matches($text, '(?<![\d.])\d{1,3}(?:\.\d{1,3}){3}(?![\d.])')) {
+                $ip = $null
+                if (-not [System.Net.IPAddress]::TryParse($match.Value, [ref]$ip)) { continue }
+                $value = InModuleScope NetworkGraph -Parameters @{ Ip = $match.Value } { param($Ip) (ConvertTo-NetworkGraphIpValue -Ip $Ip).Value }
+                ($value -ge $HostNetwork.First -and $value -le $HostNetwork.Last) | Should -BeFalse -Because "$($file.Name) holds $($match.Value), inside the capturing host's network"
+            }
+        }
+    }
+
+    It 'no fixture MAC has a device half other than 00-00-nn, in MAC form or inside an EUI-64 IPv6 address' {
+        # Multicast and broadcast MACs (group bit set) and the all-zero MAC name no device. The OUI
+        # test vectors live in Get-MacAddressVendor.Tests.ps1, not in fixtures.
+        $mac = '(?<![0-9A-Fa-f:-])([0-9A-Fa-f]{2})([-:])([0-9A-Fa-f]{2})\2([0-9A-Fa-f]{2})\2([0-9A-Fa-f]{2})\2([0-9A-Fa-f]{2})\2([0-9A-Fa-f]{2})(?![0-9A-Fa-f:-])'
+        foreach ($file in $FixtureFiles) {
+            $text = [System.IO.File]::ReadAllText($file.FullName)
+            foreach ($match in [regex]::Matches($text, $mac)) {
+                $bytes = @(1, 3, 4, 5, 6, 7 | ForEach-Object { [Convert]::ToByte($match.Groups[$_].Value, 16) })
+                if (($bytes[0] -band 1) -or -not ($bytes | Where-Object { $_ })) { continue }
+                ($bytes[3] -eq 0 -and $bytes[4] -eq 0) | Should -BeTrue -Because "$($file.Name) holds $($match.Value)"
+            }
+            foreach ($match in [regex]::Matches($text, '(?<![0-9A-Fa-f:])[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}(?![0-9A-Fa-f:])')) {
+                $ip = $null
+                if (-not [System.Net.IPAddress]::TryParse($match.Value, [ref]$ip) -or $ip.AddressFamily -ne 'InterNetworkV6') { continue }
+                $bytes = $ip.GetAddressBytes()
+                if ($bytes[11] -ne 0xFF -or $bytes[12] -ne 0xFE) { continue }
+                ($bytes[13] -eq 0 -and $bytes[14] -eq 0) | Should -BeTrue -Because "$($file.Name) holds $($match.Value), an EUI-64 address that carries a MAC"
+            }
+        }
     }
 }

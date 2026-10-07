@@ -8,7 +8,7 @@ function Get-NetworkRoute {
         has no route table to read; it derives the routes the interface configuration implies (one
         on-link route per address prefix, one default route per gateway, no metric) and says so in
         Source. NextHop is $null for an on-link route. ConvertTo-NetworkGraph turns these rows into
-        the routes-to edges of the graph.
+        the RoutesTo edges of the graph.
 
     .PARAMETER AddressFamily
         IPv4, IPv6, or both (default).

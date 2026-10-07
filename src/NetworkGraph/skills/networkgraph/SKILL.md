@@ -33,9 +33,11 @@ All take `-Tool Auto|Native|DotNet` (Auto: native when installed, else the .NET 
 
 Only scan hosts you are allowed to scan. Never add tools or flags whose purpose is evading a control.
 
+Before sharing captured output (a bug report, a test fixture, a pasted Source line), scrub it without changing its format: keep the vendor half of every LAN MAC and replace the device half with `00-00-nn` (MACs inside EUI-64 IPv6 addresses `...ff:fe..` too); replace every public IP that belongs to the capturing host (its external address, its own global IPv6 addresses, the address an RDAP lookup was made for) with a documentation address (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32); replace host names that identify a person or site.
+
 ## Graph and data
 
-- `ConvertTo-NetworkGraph` — any mix of the above → `NetworkGraph.Graph` (Root, Nodes, Edges, Findings, NodeCount, EdgeCount, FindingCount). Node kinds Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn; edges contains, routes-to, hops-to, connects-to, owned-by, resolves-to, belongs-to (properties From, To, Kind, as TerraformGraph); findings SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface. Offline.
+- `ConvertTo-NetworkGraph` — any mix of the above → `NetworkGraph.Graph` (Root, Nodes, Edges, Findings, NodeCount, EdgeCount, FindingCount). Node kinds Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn; edges Contains, RoutesTo, HopsTo, ConnectsTo, OwnedBy, ResolvesTo, BelongsTo (properties From, To, Kind, as TerraformGraph); findings SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface. Offline.
 - `Get-NetworkGraphData` — data files with sources and pulled dates (`-Kind`, `-Sources`).
 - `Update-NetworkGraphData` — refresh SpecialUse, CloudRanges, Oui, Ports into the user cache (network). Cloud ranges change weekly.
 

@@ -38,7 +38,7 @@ $script:NetworkGraphNodeContract = [ordered]@{
     Cloud      = @('Cloud')
     Asn        = @('Asn', 'Owner')
 }
-$script:NetworkGraphEdgeKinds = 'contains', 'routes-to', 'hops-to', 'connects-to', 'owned-by', 'resolves-to', 'belongs-to'
+$script:NetworkGraphEdgeKinds = 'Contains', 'RoutesTo', 'HopsTo', 'ConnectsTo', 'OwnedBy', 'ResolvesTo', 'BelongsTo'
 $script:NetworkGraphFindingKinds = 'SubnetOverlap', 'BelowCloudMinimum', 'NonCloudPublicConnection', 'WildcardListener', 'RouteWithoutInterface'
 
 #region functions (Invoke-Build Assemble replaces this region with the files' contents)

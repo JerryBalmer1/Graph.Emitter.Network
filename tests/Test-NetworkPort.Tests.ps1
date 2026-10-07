@@ -26,7 +26,7 @@ Describe 'Test-NetworkPort' {
         AfterAll { Clear-NativeFixture }
 
         It 'returns one row per port with the IANA service and the nc command line' {
-            $rows = @(Test-NetworkPort 1.1.1.1 -Port 443, 81)
+            $rows = @(Test-NetworkPort 1.1.1.1 -Port 443, 81 -Tool Native)
             $rows.Open | Should -Be @($true, $false)
             $rows[0].Service | Should -Be 'https'
             $rows[0].Protocol | Should -Be 'Tcp'
@@ -50,6 +50,14 @@ Describe 'Test-NetworkPort' {
             $rows[0].LatencyMs | Should -Not -BeNullOrEmpty
             $rows[1].Open | Should -BeFalse
             $rows[0].Source | Should -BeLike '*TcpClient*ConnectAsync*'
+        }
+
+        It 'Auto uses the .NET TcpClient path even when the native tool is installed' {
+            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { $IsWindows ? 'Test-NetConnection' : 'nc' }
+            $row = Test-NetworkPort 127.0.0.1 -Port $OpenPort -Timeout 2000
+            $row.Open | Should -BeTrue
+            $row.Source | Should -BeLike '*TcpClient*ConnectAsync*'
+            Should -Invoke Resolve-NetworkGraphTool -ModuleName NetworkGraph -Times 0 -Exactly
         }
 
         It 'does not report a closed UDP port open' {

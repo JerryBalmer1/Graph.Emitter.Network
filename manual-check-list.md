@@ -135,7 +135,7 @@ pwsh -NoProfile -Command {
 }
 ```
 
-Expect: Root is this computer's name in lower case, with NodeCount, EdgeCount and FindingCount (for example 524, 1047, 61). Node kinds Asn, Cloud, Connection, Host (1), Process, RemoteHost, where Connection equals the row count from 1.4 and Cloud is 1 to 4; edge kinds belongs-to, connects-to, contains, owned-by; findings WildcardListener and usually NonCloudPublicConnection.
+Expect: Root is this computer's name in lower case, with NodeCount, EdgeCount and FindingCount (for example 524, 1047, 61). Node kinds Asn, Cloud, Connection, Host (1), Process, RemoteHost, where Connection equals the row count from 1.4 and Cloud is 1 to 4; edge kinds BelongsTo, ConnectsTo, Contains, OwnedBy; findings WildcardListener and usually NonCloudPublicConnection.
 
 Pester: "node property names equal the contract in docs/graph-shape.md", "gives every node a unique Id", "reports WildcardListener on testhost/conn/tcp/0.0.0.0:8080/*", "graphs the live connections of this host" (Live)
 
@@ -157,3 +157,44 @@ pwsh -NoProfile -Command {
 Expect: `AWS`, `Azure`, `GCP`, `None`, then `AWS`, `Azure`. In an interactive shell, typing `Get-Subnet 10.0.0.0/24 -Cloud ` and pressing Tab cycles through the same four.
 
 Pester: "completes -Cloud on Get-Subnet", "completes -Cloud on New-SubnetPlan"
+
+### 1.8 Test-NetworkPort: Auto is the .NET path, Native is still there
+
+A loopback listener tested with the default (Auto) and with `-Tool Native`, then a filtered documentation address timed with the default.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start()
+    $port = $listener.LocalEndpoint.Port
+    $auto = Test-NetworkPort 127.0.0.1 -Port $port
+    $native = Test-NetworkPort 127.0.0.1 -Port $port -Tool Native
+    $listener.Stop()
+    $auto, $native | Format-List Open, LatencyMs, Source
+    (Measure-Command { Test-NetworkPort 192.0.2.1 -Port 443 -Timeout 1000 }).TotalSeconds -lt 3
+}
+```
+
+Expect: two lists. The first: Open `True`, a LatencyMs (for example `28.6`), Source `[System.Net.Sockets.TcpClient]::new().ConnectAsync('127.0.0.1', <port>), timeout 2000`. The second: Open `True`, LatencyMs empty, Source `Test-NetConnection -ComputerName 127.0.0.1 -Port <port>`. Then `True`: the filtered address took the one-second timeout, not Test-NetConnection's twenty seconds.
+
+Pester: "Auto uses the .NET TcpClient path even when the native tool is installed", "returns one row per port with the IANA service and the nc command line"
+
+### 1.9 ConvertTo-NetworkGraph: edge kinds are PascalCase
+
+A VLSM plan as a graph: its edges use TerraformGraph's PascalCase kinds, and the 0.1.0 lower-case kind is gone.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $graph = New-SubnetPlan 10.0.0.0/22 -Hosts 250, 120 -Cloud Azure | ConvertTo-NetworkGraph -HostName testhost
+    $graph.Edges | Format-Table From, To, Kind
+    $graph.Edges.Kind -ccontains 'contains'
+}
+```
+
+Expect: two rows, `10.0.0.0/22@Azure 10.0.0.0/24@Azure Contains` and `10.0.0.0/22@Azure 10.0.1.0/25@Azure Contains`, then `False`.
+
+Pester: "edge kinds are PascalCase and the doc table, the module list and TerraformGraph agree", "every edge joins two nodes in the graph and uses a documented kind"
