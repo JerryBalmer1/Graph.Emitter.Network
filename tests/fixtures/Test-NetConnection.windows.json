@@ -1,0 +1,14 @@
+[
+  {
+    "ComputerName": "1.1.1.1",
+    "RemoteAddress": "1.1.1.1",
+    "RemotePort": 443,
+    "TcpTestSucceeded": true
+  },
+  {
+    "ComputerName": "127.0.0.1",
+    "RemoteAddress": "127.0.0.1",
+    "RemotePort": 9,
+    "TcpTestSucceeded": false
+  }
+]

@@ -1,0 +1,15 @@
+Netid State     Recv-Q Send-Q       Local Address:Port              Peer Address:PortProcess                         
+tcp   LISTEN    0      1                  0.0.0.0:8080                   0.0.0.0:*    users:(("nc",pid=1264,fd=3))   
+tcp   ESTAB     0      0               172.17.0.2:44252                  1.1.1.1:443  users:(("sleep",pid=1265,fd=3))
+tcp   ESTAB     0      0               172.17.0.2:51714             140.82.112.3:443  users:(("sleep",pid=1271,fd=3))
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:58282 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:32780 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:58290 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:32802 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:58312 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:32800 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:58286 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:58304 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:58276 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:32786 [::ffff:150.171.109.151]:443                                 
+tcp   TIME-WAIT 0      0      [::ffff:172.17.0.2]:58274 [::ffff:150.171.109.151]:443                                 

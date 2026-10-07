@@ -1,0 +1,12 @@
+# Invoke-Build Assemble output
+dist/
+
+# Partial harvests and checkpoints
+*.partial.json
+
+# Atomic-write temp files left by an interrupted Update-NetworkGraphData
+*.json.tmp
+*.json.gz.tmp
+
+# Pester output
+testResults.xml

@@ -1,0 +1,40 @@
+
+Interface: 192.168.56.1 --- 0x8
+  Internet Address      Physical Address      Type
+  192.168.56.255        ff-ff-ff-ff-ff-ff     static    
+  224.0.0.2             01-00-5e-00-00-02     static    
+  224.0.0.22            01-00-5e-00-00-16     static    
+  224.0.0.251           01-00-5e-00-00-fb     static    
+  224.0.0.252           01-00-5e-00-00-fc     static    
+  224.0.2.3             01-00-5e-00-02-03     static    
+  239.255.255.250       01-00-5e-7f-ff-fa     static    
+  255.255.255.255       ff-ff-ff-ff-ff-ff     static    
+
+Interface: 192.168.0.6 --- 0xf
+  Internet Address      Physical Address      Type
+  203.0.113.128         cc-40-d0-00-00-01     dynamic   
+  192.168.0.1           cc-40-d0-00-00-02     dynamic   
+  192.168.0.8           28-ea-0b-00-00-03     dynamic   
+  192.168.0.19          10-b6-76-00-00-04     dynamic   
+  192.168.0.29          48-a2-e6-00-00-05     dynamic   
+  192.168.0.33          24-b2-b9-00-00-06     dynamic   
+  192.168.0.255         ff-ff-ff-ff-ff-ff     static    
+  224.0.0.2             01-00-5e-00-00-02     static    
+  224.0.0.22            01-00-5e-00-00-16     static    
+  224.0.0.251           01-00-5e-00-00-fb     static    
+  224.0.0.252           01-00-5e-00-00-fc     static    
+  224.0.2.3             01-00-5e-00-02-03     static    
+  239.255.255.250       01-00-5e-7f-ff-fa     static    
+  239.255.255.253       01-00-5e-7f-ff-fd     static    
+  255.255.255.255       ff-ff-ff-ff-ff-ff     static    
+
+Interface: 172.31.128.1 --- 0x51
+  Internet Address      Physical Address      Type
+  172.31.131.118        00-15-5d-ba-a9-fa     dynamic   
+  172.31.143.255        ff-ff-ff-ff-ff-ff     static    
+  224.0.0.2             01-00-5e-00-00-02     static    
+  224.0.0.22            01-00-5e-00-00-16     static    
+  224.0.0.251           01-00-5e-00-00-fb     static    
+  224.0.2.3             01-00-5e-00-02-03     static    
+  239.255.255.250       01-00-5e-7f-ff-fa     static    
+  255.255.255.255       ff-ff-ff-ff-ff-ff     static

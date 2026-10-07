@@ -1,0 +1,5 @@
+example.com.		81	IN	A	104.20.23.154
+example.com.		81	IN	A	172.66.147.243
+google.com.		160	IN	MX	10 smtp.google.com.
+1.1.1.1.in-addr.arpa.	1222	IN	PTR	one.one.one.one.
+www.microsoft.com.	3600	IN	CNAME	www.microsoft.com-c-3.edgekey.net.

@@ -1,0 +1,68 @@
+{
+  "formatVersion": 1,
+  "kind": "CloudReservations",
+  "maxAgeDays": 365,
+  "note": "Written by hand from the pages in sources; Update-NetworkGraphData does not harvest it. Offsets count from the first address (from first) or back from the last (from last). minPrefixLength is the largest subnet a cloud allows, maxPrefixLength the smallest. versions lists the IP versions the reserved list applies to; another version uses None.",
+  "sources": [
+    { "url": "https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#are-there-any-restrictions-on-using-ip-addresses-within-these-subnets", "title": "Azure Virtual Network FAQ: Are there any restrictions on using IP addresses within these subnets? (and: How small and how large can virtual networks and subnets be?)", "pulled": "2026-10-07" },
+    { "url": "https://docs.aws.amazon.com/vpc/latest/userguide/subnet-sizing.html", "title": "Amazon VPC User Guide: Subnet CIDR blocks (Subnet sizing for IPv4 and IPv6)", "pulled": "2026-10-07" },
+    { "url": "https://docs.cloud.google.com/vpc/docs/subnets#unusable-ip-addresses-in-every-subnet", "title": "Google Cloud VPC: Subnets, unusable addresses in IPv4 subnet ranges and range size limits", "pulled": "2026-10-07" },
+    { "url": "https://www.rfc-editor.org/rfc/rfc950", "title": "RFC 950 Internet Standard Subnetting Procedure (all-zeros host is the network)", "pulled": "2026-10-07" },
+    { "url": "https://www.rfc-editor.org/rfc/rfc919", "title": "RFC 919 Broadcasting Internet Datagrams (all-ones host is broadcast)", "pulled": "2026-10-07" },
+    { "url": "https://www.rfc-editor.org/rfc/rfc3021", "title": "RFC 3021 Using 31-Bit Prefixes on IPv4 Point-to-Point Links", "pulled": "2026-10-07" }
+  ],
+  "clouds": {
+    "None": {
+      "minPrefixLength": null,
+      "maxPrefixLength": null,
+      "versions": [4],
+      "reserveUpToPrefixLength": 30,
+      "gateway": null,
+      "reserved": [
+        { "from": "first", "offset": 0, "role": "Network address", "source": "https://www.rfc-editor.org/rfc/rfc950" },
+        { "from": "last", "offset": 0, "role": "Broadcast address", "source": "https://www.rfc-editor.org/rfc/rfc919" }
+      ]
+    },
+    "Azure": {
+      "minPrefixLength": 2,
+      "maxPrefixLength": 29,
+      "versions": [4],
+      "reserveUpToPrefixLength": 32,
+      "gateway": { "from": "first", "offset": 1 },
+      "reserved": [
+        { "from": "first", "offset": 0, "role": "Network address", "source": "https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#are-there-any-restrictions-on-using-ip-addresses-within-these-subnets" },
+        { "from": "first", "offset": 1, "role": "Default gateway", "source": "https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#are-there-any-restrictions-on-using-ip-addresses-within-these-subnets" },
+        { "from": "first", "offset": 2, "role": "Azure DNS mapping", "source": "https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#are-there-any-restrictions-on-using-ip-addresses-within-these-subnets" },
+        { "from": "first", "offset": 3, "role": "Azure DNS mapping", "source": "https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#are-there-any-restrictions-on-using-ip-addresses-within-these-subnets" },
+        { "from": "last", "offset": 0, "role": "Broadcast address", "source": "https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#are-there-any-restrictions-on-using-ip-addresses-within-these-subnets" }
+      ]
+    },
+    "AWS": {
+      "minPrefixLength": 16,
+      "maxPrefixLength": 28,
+      "versions": [4, 6],
+      "reserveUpToPrefixLength": 128,
+      "gateway": { "from": "first", "offset": 1 },
+      "reserved": [
+        { "from": "first", "offset": 0, "role": "Network address", "source": "https://docs.aws.amazon.com/vpc/latest/userguide/subnet-sizing.html" },
+        { "from": "first", "offset": 1, "role": "VPC router", "source": "https://docs.aws.amazon.com/vpc/latest/userguide/subnet-sizing.html" },
+        { "from": "first", "offset": 2, "role": "Amazon DNS (base plus two)", "source": "https://docs.aws.amazon.com/vpc/latest/userguide/subnet-sizing.html" },
+        { "from": "first", "offset": 3, "role": "Reserved for future use", "source": "https://docs.aws.amazon.com/vpc/latest/userguide/subnet-sizing.html" },
+        { "from": "last", "offset": 0, "role": "Broadcast address (unsupported, reserved)", "source": "https://docs.aws.amazon.com/vpc/latest/userguide/subnet-sizing.html" }
+      ]
+    },
+    "GCP": {
+      "minPrefixLength": null,
+      "maxPrefixLength": 29,
+      "versions": [4],
+      "reserveUpToPrefixLength": 32,
+      "gateway": { "from": "first", "offset": 1 },
+      "reserved": [
+        { "from": "first", "offset": 0, "role": "Network address", "source": "https://docs.cloud.google.com/vpc/docs/subnets#unusable-ip-addresses-in-every-subnet" },
+        { "from": "first", "offset": 1, "role": "Default gateway", "source": "https://docs.cloud.google.com/vpc/docs/subnets#unusable-ip-addresses-in-every-subnet" },
+        { "from": "last", "offset": 1, "role": "Reserved for potential future use (second-to-last)", "source": "https://docs.cloud.google.com/vpc/docs/subnets#unusable-ip-addresses-in-every-subnet" },
+        { "from": "last", "offset": 0, "role": "Broadcast address", "source": "https://docs.cloud.google.com/vpc/docs/subnets#unusable-ip-addresses-in-every-subnet" }
+      ]
+    }
+  }
+}

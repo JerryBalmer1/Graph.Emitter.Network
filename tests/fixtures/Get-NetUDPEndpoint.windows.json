@@ -1,0 +1,22 @@
+[
+  {
+    "LocalAddress": "0.0.0.0",
+    "LocalPort": 64058,
+    "OwningProcess": 329004
+  },
+  {
+    "LocalAddress": "0.0.0.0",
+    "LocalPort": 63311,
+    "OwningProcess": 12524
+  },
+  {
+    "LocalAddress": "::",
+    "LocalPort": 64574,
+    "OwningProcess": 3628
+  },
+  {
+    "LocalAddress": "192.168.0.6",
+    "LocalPort": 55304,
+    "OwningProcess": 2220
+  }
+]

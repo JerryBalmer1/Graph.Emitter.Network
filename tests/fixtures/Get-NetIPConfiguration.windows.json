@@ -1,0 +1,51 @@
+[
+  {
+    "InterfaceAlias": "Wi-Fi",
+    "InterfaceDescription": "Killer(R) Wi-Fi 6E AX1675x 160MHz Wireless Network Adapter (210NGW)",
+    "Status": "Up",
+    "MacAddress": "04-56-E5-00-00-10",
+    "Ip": [
+      "192.168.0.6/24"
+    ],
+    "Gateway": [
+      "192.168.0.1"
+    ],
+    "Dns": [
+      "68.105.28.11",
+      "68.105.29.11",
+      "68.105.28.12"
+    ]
+  },
+  {
+    "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",
+    "InterfaceDescription": "Hyper-V Virtual Ethernet Adapter",
+    "Status": "Up",
+    "MacAddress": "00-15-5D-92-DE-1C",
+    "Ip": [
+      "172.31.128.1/20",
+      "fe80::1/64"
+    ],
+    "Gateway": [],
+    "Dns": [
+      "fec0:0:0:ffff::1",
+      "fec0:0:0:ffff::2",
+      "fec0:0:0:ffff::3"
+    ]
+  },
+  {
+    "InterfaceAlias": "Local Area Connection 3",
+    "InterfaceDescription": "TAP-Windows Adapter V9 for OpenVPN Connect",
+    "Status": "Disconnected",
+    "MacAddress": "00-FF-D1-00-00-11",
+    "Ip": [
+      "169.254.179.98/16",
+      "fe80::1/64"
+    ],
+    "Gateway": [],
+    "Dns": [
+      "fec0:0:0:ffff::1",
+      "fec0:0:0:ffff::2",
+      "fec0:0:0:ffff::3"
+    ]
+  }
+]

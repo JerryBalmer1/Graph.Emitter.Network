@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "kind": "IpSources",
+  "maxAgeDays": 365,
+  "pulled": "2026-10-07",
+  "note": "Written by hand; Update-NetworkGraphData does not harvest it. Get-ExternalIpAddress asks every endpoint in order and reports each answer, so a disagreement (two egress paths, a proxy) is visible. -Rdap asks rdap.org, which redirects to the RIR that holds the address; when rdap.org fails it reads the IANA bootstrap file for the RIR base URL and asks the RIR directly.",
+  "sources": [
+    { "url": "https://www.ipify.org/", "title": "ipify API (api.ipify.org, api6.ipify.org)", "pulled": "2026-10-07" },
+    { "url": "https://checkip.amazonaws.com/", "title": "AWS checkip", "pulled": "2026-10-07" },
+    { "url": "https://icanhazip.com/", "title": "icanhazip (operated by Cloudflare)", "pulled": "2026-10-07" },
+    { "url": "https://about.rdap.org/", "title": "rdap.org bootstrap redirector", "pulled": "2026-10-07" },
+    { "url": "https://data.iana.org/rdap/", "title": "IANA RDAP bootstrap registries (RFC 9224)", "pulled": "2026-10-07" },
+    { "url": "https://www.rfc-editor.org/rfc/rfc9083", "title": "RFC 9083 JSON Responses for RDAP", "pulled": "2026-10-07" }
+  ],
+  "endpoints": [
+    { "name": "ipify", "url": "https://api.ipify.org?format=json", "format": "json", "field": "ip" },
+    { "name": "aws-checkip", "url": "https://checkip.amazonaws.com", "format": "text", "field": null },
+    { "name": "icanhazip", "url": "https://icanhazip.com", "format": "text", "field": null }
+  ],
+  "rdap": {
+    "redirector": "https://rdap.org/ip/{ip}",
+    "bootstrap": { "4": "https://data.iana.org/rdap/ipv4.json", "6": "https://data.iana.org/rdap/ipv6.json" }
+  }
+}

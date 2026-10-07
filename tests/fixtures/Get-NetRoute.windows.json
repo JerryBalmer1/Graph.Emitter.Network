@@ -1,0 +1,50 @@
+[
+  {
+    "DestinationPrefix": "0.0.0.0/0",
+    "NextHop": "192.168.0.1",
+    "InterfaceAlias": "Wi-Fi",
+    "InterfaceIndex": 15,
+    "RouteMetric": 0,
+    "AddressFamily": "IPv4"
+  },
+  {
+    "DestinationPrefix": "192.168.0.255/32",
+    "NextHop": "0.0.0.0",
+    "InterfaceAlias": "Wi-Fi",
+    "InterfaceIndex": 15,
+    "RouteMetric": 256,
+    "AddressFamily": "IPv4"
+  },
+  {
+    "DestinationPrefix": "192.168.0.6/32",
+    "NextHop": "0.0.0.0",
+    "InterfaceAlias": "Wi-Fi",
+    "InterfaceIndex": 15,
+    "RouteMetric": 256,
+    "AddressFamily": "IPv4"
+  },
+  {
+    "DestinationPrefix": "192.168.0.0/24",
+    "NextHop": "0.0.0.0",
+    "InterfaceAlias": "Wi-Fi",
+    "InterfaceIndex": 15,
+    "RouteMetric": 256,
+    "AddressFamily": "IPv4"
+  },
+  {
+    "DestinationPrefix": "127.0.0.0/8",
+    "NextHop": "0.0.0.0",
+    "InterfaceAlias": "Loopback Pseudo-Interface 1",
+    "InterfaceIndex": 1,
+    "RouteMetric": 256,
+    "AddressFamily": "IPv4"
+  },
+  {
+    "DestinationPrefix": "fe80::/64",
+    "NextHop": "::",
+    "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",
+    "InterfaceIndex": 81,
+    "RouteMetric": 256,
+    "AddressFamily": "IPv6"
+  }
+]

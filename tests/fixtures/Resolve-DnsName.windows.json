@@ -1,0 +1,145 @@
+[
+  {
+    "Name": "example.com",
+    "Type": "A",
+    "TTL": 263,
+    "Section": "Answer",
+    "IPAddress": "104.20.23.154",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "example.com",
+    "Type": "A",
+    "TTL": 263,
+    "Section": "Answer",
+    "IPAddress": "172.66.147.243",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "google.com",
+    "Type": "MX",
+    "TTL": 61,
+    "Section": "Answer",
+    "IPAddress": null,
+    "NameHost": null,
+    "NameExchange": "smtp.google.com",
+    "Preference": 10,
+    "Strings": null
+  },
+  {
+    "Name": "smtp.google.com",
+    "Type": "A",
+    "TTL": 201,
+    "Section": "Additional",
+    "IPAddress": "172.217.75.26",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "smtp.google.com",
+    "Type": "A",
+    "TTL": 201,
+    "Section": "Additional",
+    "IPAddress": "192.178.164.26",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "smtp.google.com",
+    "Type": "A",
+    "TTL": 201,
+    "Section": "Additional",
+    "IPAddress": "192.178.164.27",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "smtp.google.com",
+    "Type": "A",
+    "TTL": 201,
+    "Section": "Additional",
+    "IPAddress": "192.178.231.27",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "smtp.google.com",
+    "Type": "A",
+    "TTL": 201,
+    "Section": "Additional",
+    "IPAddress": "192.178.231.26",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "smtp.google.com",
+    "Type": "AAAA",
+    "TTL": 213,
+    "Section": "Additional",
+    "IPAddress": "2607:f8b0:4023:200b::1a",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "smtp.google.com",
+    "Type": "AAAA",
+    "TTL": 213,
+    "Section": "Additional",
+    "IPAddress": "2607:f8b0:4023:2009::1a",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "smtp.google.com",
+    "Type": "AAAA",
+    "TTL": 213,
+    "Section": "Additional",
+    "IPAddress": "2607:f8b0:4023:2009::1b",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "smtp.google.com",
+    "Type": "AAAA",
+    "TTL": 213,
+    "Section": "Additional",
+    "IPAddress": "2607:f8b0:4023:200d::1b",
+    "NameHost": null,
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  },
+  {
+    "Name": "1.1.1.1.in-addr.arpa",
+    "Type": "PTR",
+    "TTL": 200,
+    "Section": "Answer",
+    "IPAddress": null,
+    "NameHost": "one.one.one.one",
+    "NameExchange": null,
+    "Preference": null,
+    "Strings": null
+  }
+]
