@@ -10,6 +10,7 @@ Requires PowerShell 7.4+, Pester 6.1.0+, InvokeBuild. PSScriptAnalyzer for `Invo
 - Keep changes scoped. No drive-by refactors.
 - Run Pester in a fresh process, never in the shell that imported the module: `pwsh -NoProfile -Command "Invoke-Pester -Path .\tests -CI"` (or `Invoke-Build`, which does the same).
 - Every change to an exported function, parameter, parameter set, default, ValidateSet, default view or documented example updates `manual-check-list.md` in the same task (see "Manual check list").
+- Any exported-function change also updates `ONTOLOGY.md` and `README.md` in the same task, as in TerraformGraph: the three files land with the code, never in a follow-up. The repo skills `manual-check-list`, `ontology-doc` and `readme` (`.claude/skills/`) say exactly which changes touch each file and how; if one of them has nothing to change, say so in the report. Pester "keeps the two doors: README's first line points to ONTOLOGY.md and ONTOLOGY.md links back first" and "resolves every term in ONTOLOGY.md's terminology table to an exported command, a typed object property or a data file" enforce the doors.
 - Every data file carries a top-level `sources` array of `{ url, title, pulled }`; no data without a source URL.
 
 ## Naming
@@ -21,6 +22,9 @@ Node types never have a property named `Address`, `Count`, `Length`, or any othe
 ```
 .build.ps1                       Invoke-Build: Test (default), Analyze, Assemble, UpdateData, CheckData
 .claude/skills/networkgraph/     repo-only agent skill (working in this repo; not shipped)
+.claude/skills/manual-check-list, ontology-doc, readme   repo-only skills keeping the three files below in step with the code (ported from TerraformGraph)
+README.md                        sysadmin door; line 1 is the only ontology mention (skill readme)
+ONTOLOGY.md                      agent door; banner, then backlink to README (skill ontology-doc)
 docs/graph-shape.md              node and edge contract, and where it came from (TerraformGraph)
 docs/design.md                   design notes and judgement calls
 src/NetworkGraph/
@@ -86,7 +90,7 @@ Every parameter with a fixed vocabulary has a ValidateSet (or an ArgumentComplet
 
 ## Manual check list
 
-`manual-check-list.md`: section 0 is setup (0.1 fresh import: version and exported commands; update its Expect whenever the version or exports change). Then one section per area, items numbered `N.M`, append-only: never renumber, mark a removed item "(removed in x.y.z)". Each item: one-line purpose, a self-contained code block that starts a fresh process (`pwsh -NoProfile -Command { ... }`) and imports from `src`, an Expect line you have seen yourself, and a `Pester:` line naming the covering test by its It description (or `Pester: none`). Update "Module version" and "Last updated" at the top. Jerry runs it on Windows.
+`manual-check-list.md`: section 0 is setup (0.1 fresh import: version and exported commands; update its Expect whenever the version or exports change). Then one section per area, items numbered `N.M`, append-only: never renumber, mark a removed item "(removed in x.y.z)". Sections 2 to 24 are one exported function each, in FunctionsToExport order; a new function joins or starts a section from 25 on (skill manual-check-list). Each item: one-line purpose, a self-contained code block that starts a fresh process (`pwsh -NoProfile -Command { ... }`), runs `Set-Location`, `Remove-Module NetworkGraph` and imports from `src` (items 1.1 to 1.14 predate the Remove-Module line), an Expect line you have seen yourself, and a `Pester:` line naming the covering test by its It description (or `Pester: none`). Update "Module version" and "Last updated" at the top. Jerry runs it on Windows.
 
 ## Do not
 

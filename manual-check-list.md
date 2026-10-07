@@ -5,7 +5,9 @@ Last updated: 2026-10-07
 
 Every block starts a fresh process (`pwsh -NoProfile -Command { ... }`) and imports the module from `src`, so no item depends on another or on the shell it is pasted into. Objects come back across the process boundary deserialized, so lists show every property rather than the default view; the Expect lines describe what that looks like. Items are append-only: never renumber, mark a removed item "(removed in x.y.z)".
 
-Verified for 0.1.1: items 0.1, 1.4, 1.5, 1.6 and 1.8 were rerun, and 1.10 to 1.14 added and run, on Windows 11 (PowerShell 7.6.6); their Expect lines are written from that output. Verified for 0.1.0: every item below was run on Windows 11 (PowerShell 7.6.6) and its Expect line written from that output. Items 1.1, 1.2, 1.3 and 1.7 were also run on Linux (Ubuntu 22.04 container, PowerShell 7, with the repository path changed to the container's) with the same output; 1.4, 1.5 and 1.6 depend on the host's own connections and path and were exercised on Linux through the Live Pester tests, not by these blocks.
+Layout: section 0 is setup, section 1 the first checks (the README's examples and cross-cutting behaviour), sections 2 to 24 one exported function each in FunctionsToExport order, one item per parameter set or distinct behaviour. From section 25 on, a section covers a family of functions or one release's cross-cutting contracts. Items from section 2 on also run `Remove-Module NetworkGraph` before the import, as TerraformGraph's checklist does: it does nothing in the fresh process, and means the inner lines can also be pasted straight into an open shell without picking up an installed NetworkGraph. Items 1.4, 1.5, 1.6, 11.x, 18.1, 18.2 and 24.1 need network access; the rest do not.
+
+Verified for 0.1.1 (sections 2 to 24): every item was run on Windows 11 (PowerShell 7.6.6) on 2026-10-07, with no nmap or dig on PATH, and its Expect line written from that output. Verified for 0.1.1: items 0.1, 1.4, 1.5, 1.6 and 1.8 were rerun, and 1.10 to 1.14 added and run, on Windows 11 (PowerShell 7.6.6); their Expect lines are written from that output. Verified for 0.1.0: every item below was run on Windows 11 (PowerShell 7.6.6) and its Expect line written from that output. Items 1.1, 1.2, 1.3 and 1.7 were also run on Linux (Ubuntu 22.04 container, PowerShell 7, with the repository path changed to the container's) with the same output; 1.4, 1.5 and 1.6 depend on the host's own connections and path and were exercised on Linux through the Live Pester tests, not by these blocks.
 
 ## 0 Setup
 
@@ -288,3 +290,1001 @@ pwsh -NoProfile -Command {
 Expect: three answer rows (ipify, aws-checkip, icanhazip) with no Error, each Source one curl command line (`curl -s -S --proto =https -m 10 https://api.ipify.org?format=json`, and so on); then Agreed `True`, your registry's Network name, a Cidr, RdapSource `Invoke-WebRequest -Uri 'https://rdap.org/ip/<your address>' -MaximumRedirection 5 -TimeoutSec 60`, Source `Get-ExternalIpAddress -Rdap -TimeoutSec 10 -Tool Native`; then `Cidr holds Ip: True`.
 
 Pester: "adds registration data from RDAP through rdap.org, with the CIDR block that holds the address", "leaves Cidr empty with a warning when no RDAP block holds the address", "asks every endpoint in ip-sources.json and reports agreement", "asks the real endpoints and RDAP" (Live)
+
+## 2 ConvertFrom-SubnetMask
+
+### 2.1 ConvertFrom-SubnetMask: -Mask
+
+Three dotted masks to prefix lengths, from the pipeline.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    '255.255.255.192', '255.255.0.0', '255.255.255.255' | ConvertFrom-SubnetMask
+}
+```
+
+Expect: Three lines: `26`, `16`, `32`.
+
+Pester: "converts <Mask> to /<Length>", "round-trips every IPv4 length"
+
+### 2.2 ConvertFrom-SubnetMask: a non-contiguous mask
+
+A mask whose one bits have a gap is refused.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    try { ConvertFrom-SubnetMask 255.0.255.0 } catch { $_.Exception.Message }
+}
+```
+
+Expect: `'255.0.255.0' is not a valid mask: its one bits are not contiguous from the left.`
+
+Pester: "rejects a non-contiguous mask"
+
+## 3 ConvertTo-SubnetMask
+
+### 3.1 ConvertTo-SubnetMask: -PrefixLength
+
+Three prefix lengths to dotted masks, from the pipeline.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    26, 16, 32 | ConvertTo-SubnetMask
+}
+```
+
+Expect: Three lines: `255.255.255.192`, `255.255.0.0`, `255.255.255.255`.
+
+Pester: "converts /<Length> to <Mask>", "takes PrefixLength from the pipeline"
+
+### 3.2 ConvertTo-SubnetMask: an IPv6 prefix length
+
+A length above 32 has no dotted mask.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    try { ConvertTo-SubnetMask 33 } catch { $_.Exception.Message }
+}
+```
+
+Expect: `Prefix length 33 is IPv6: IPv6 has no dotted subnet mask, use the prefix length (/33) itself.`
+
+Pester: "gives a clear error for an IPv6 prefix length"
+
+## 4 Get-MacAddressVendor
+
+### 4.1 Get-MacAddressVendor: -MacAddress in three notations
+
+Hyphen, colon and Cisco dot notation, each looked up in the IEEE OUI data.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-MacAddressVendor 00-15-5D-01-02-03, 00:1A:2B:3C:4D:5E, 001b.6300.0001 | Format-Table MacAddress, Vendor, IsLocallyAdministered, IsMulticast
+}
+```
+
+Expect: Three rows, each MacAddress in hyphen form: `00-15-5D-01-02-03 Microsoft Corporation`, `00-1A-2B-3C-4D-5E Ayecom Technology Co., Ltd.`, `00-1B-63-00-00-01 Apple, Inc.`, all with IsLocallyAdministered and IsMulticast `False`. (Vendor names come from oui.json; a refreshed harvest may spell them differently.)
+
+Pester: "reads <Mac> in any notation"
+
+### 4.2 Get-MacAddressVendor: randomised, multicast and invalid addresses
+
+A locally-administered (randomised) MAC names no vendor, a multicast MAC says so, and text that is not a MAC is a non-terminating error.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-MacAddressVendor 02-15-5D-01-02-03, 01-00-5E-00-00-FB | Format-Table MacAddress, Vendor, IsLocallyAdministered, IsMulticast
+    Get-MacAddressVendor not-a-mac 2>&1 | ForEach-Object { "$_" }
+}
+```
+
+Expect: Two rows with an empty Vendor: `02-15-5D-01-02-03` IsLocallyAdministered `True`, `01-00-5E-00-00-FB` IsMulticast `True`; then `'not-a-mac' is not a MAC address (six bytes, for example 00-1A-2B-3C-4D-5E).`
+
+Pester: "gives no vendor for a locally-administered (randomised) address", "reads the multicast bit", "writes an error for text that is not a MAC address and goes on"
+
+## 5 Get-Subnet
+
+### 5.1 Get-Subnet: -Cidr (default set, no cloud)
+
+Host bits are cleared and the plain (None) rules apply.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-Subnet 10.0.0.77/26 | Format-List Cidr, Network, Broadcast, FirstUsable, LastUsable, Usable, Mask, Cloud
+}
+```
+
+Expect: Cidr `10.0.0.64/26`, Network `10.0.0.64`, Broadcast `10.0.0.127`, FirstUsable `10.0.0.65`, LastUsable `10.0.0.126`, Usable `62`, Mask `255.255.255.192`, Cloud `None`.
+
+Pester: "clears host bits: 10.0.0.77/26 is 10.0.0.64/26", "<Cidr> has <Usable> usable from <First> to <Last>"
+
+### 5.2 Get-Subnet: -Address -Mask
+
+The Mask parameter set: an address and a dotted mask.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-Subnet -Address 192.168.1.77 -Mask 255.255.255.192 | Format-List Cidr, FirstUsable, LastUsable, Usable
+}
+```
+
+Expect: Cidr `192.168.1.64/26`, FirstUsable `192.168.1.65`, LastUsable `192.168.1.126`, Usable `62`.
+
+Pester: "takes -Address with -PrefixLength or -Mask"
+
+### 5.3 Get-Subnet: -Address -PrefixLength -Cloud GCP
+
+The PrefixLength parameter set, with GCP's reservations (the first two, the second-to-last and the last).
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-Subnet -Address 172.16.5.9 -PrefixLength 20 -Cloud GCP | Format-List Cidr, FirstUsable, LastUsable, Usable, Gateway
+    (Get-Subnet -Address 172.16.5.9 -PrefixLength 20 -Cloud GCP).Reserved | Format-Table Ip, Role
+}
+```
+
+Expect: Cidr `172.16.0.0/20`, FirstUsable `172.16.0.2`, LastUsable `172.16.15.253`, Usable `4092`, Gateway `172.16.0.1`; then four rows: 172.16.0.0 Network address, 172.16.0.1 Default gateway, 172.16.15.254 Reserved for potential future use (second-to-last), 172.16.15.255 Broadcast address.
+
+Pester: "takes -Address with -PrefixLength or -Mask", "GCP reserves the second-to-last address"
+
+### 5.4 Get-Subnet: below the cloud minimum
+
+A /29 under AWS (minimum /28) is flagged and warned about, not refused.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-Subnet 10.0.0.0/29 -Cloud AWS 3>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.WarningRecord]) { "WARNING: $_" } else { $_ | Format-List Cidr, Usable, BelowCloudMinimum } }
+}
+```
+
+Expect: `WARNING: 10.0.0.0/29 is smaller than the AWS minimum subnet /28.`, then Cidr `10.0.0.0/29`, Usable `3`, BelowCloudMinimum `True`.
+
+Pester: "flags a subnet below the cloud minimum and warns"
+
+### 5.5 Get-Subnet: an invalid prefix
+
+A prefix length out of range for IPv4 is a terminating error.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    try { Get-Subnet 10.0.0.0/33 } catch { $_.Exception.Message }
+}
+```
+
+Expect: `Prefix length 33 is out of range for IPv4 (0-32).`
+
+Pester: "rejects text that is not a prefix"
+
+## 6 Get-SubnetChildren
+
+### 6.1 Get-SubnetChildren: -Cidr -In
+
+Direct children only: 10.0.1.128/25 sits under 10.0.1.0/24, so it is not a direct child of the /16.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-SubnetChildren 10.0.0.0/16 -In 10.0.1.0/24, 10.0.1.128/25, 10.1.0.0/24 | Format-Table Parent, Cidr
+}
+```
+
+Expect: One row: Parent `10.0.0.0/16`, Cidr `10.0.1.0/24`.
+
+Pester: "returns only direct children by default"
+
+### 6.2 Get-SubnetChildren: -Cidr -In -Recurse
+
+Every descendant, each with its direct parent.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-SubnetChildren 10.0.0.0/16 -In 10.0.1.0/24, 10.0.1.128/25, 10.1.0.0/24 -Recurse | Format-Table Parent, Cidr
+}
+```
+
+Expect: Two rows: `10.0.0.0/16 10.0.1.0/24` and `10.0.1.0/24 10.0.1.128/25`. 10.1.0.0/24 is in neither.
+
+Pester: "returns every descendant with its direct parent with -Recurse"
+
+## 7 Get-SubnetParent
+
+### 7.1 Get-SubnetParent: -Cidr (the list itself)
+
+Without -In, each prefix's parent is the most specific other prefix in the same list.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-SubnetParent 10.0.1.0/24, 10.0.0.0/16, 10.0.1.128/25 | Format-Table Cidr, Parent
+}
+```
+
+Expect: Three rows: `10.0.1.0/24 10.0.0.0/16`, `10.0.0.0/16` with an empty Parent, `10.0.1.128/25 10.0.1.0/24`.
+
+Pester: "finds the most specific containing prefix within the list itself", "returns no parent for a prefix outside every candidate, and never itself"
+
+### 7.2 Get-SubnetParent: -Cidr -In
+
+A bare address placed among candidate prefixes.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-SubnetParent 10.0.1.7 -In 10.0.0.0/16, 10.0.1.0/24 | Format-Table Cidr, Parent
+}
+```
+
+Expect: One row: Cidr `10.0.1.7/32`, Parent `10.0.1.0/24`.
+
+Pester: "places a bare address among -In candidates"
+
+## 8 New-SubnetPlan
+
+### 8.1 New-SubnetPlan: -Hosts -Cloud AWS
+
+The Hosts set under AWS: reservations are added before rounding up, and no subnet goes below the /28 minimum.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $plan = New-SubnetPlan 10.0.0.0/24 -Hosts 60, 2 -Cloud AWS
+    $plan.Subnets | Format-Table Name, Cidr, RequestedHosts, Usable
+    $plan.Remaining
+}
+```
+
+Expect: `subnet-1 10.0.0.0/25 60 123` and `subnet-2 10.0.0.128/28 2 11`; Remaining `10.0.0.144/28`, `10.0.0.160/27`, `10.0.0.192/26`.
+
+Pester: "adds the cloud reservations before rounding up (60 hosts is a /26 under None, a /25 under Azure)", "never goes below the cloud minimum (2 hosts is a /28 under AWS)"
+
+### 8.2 New-SubnetPlan: -PrefixLength (Equal set)
+
+An equal split into /26s under Azure, then a split length shorter than the parent.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $plan = New-SubnetPlan 10.0.0.0/24 -PrefixLength 26 -Cloud Azure
+    $plan.Subnets | Format-Table Name, Cidr, Usable, FirstUsable, LastUsable
+    try { New-SubnetPlan 10.0.0.0/24 -PrefixLength 23 } catch { $_.Exception.Message }
+}
+```
+
+Expect: Four rows subnet-1 to subnet-4, `10.0.0.0/26`, `10.0.0.64/26`, `10.0.0.128/26`, `10.0.0.192/26`, each Usable `59`, the first FirstUsable `10.0.0.4` and LastUsable `10.0.0.62`; then `Cannot split 10.0.0.0/24 into /23 subnets: the length must be between 24 and 32.`
+
+Pester: "splits equally with -PrefixLength", "rejects an equal split shorter than the parent"
+
+### 8.3 New-SubnetPlan: -Requirement (named subnets)
+
+The Requirement set: a hashtable of names to host counts, placed largest first.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $plan = New-SubnetPlan 10.1.0.0/16 -Requirement @{ web = 200; app = 400 } -Cloud Azure
+    $plan.Subnets | Format-Table Name, Cidr, RequestedHosts, Usable
+}
+```
+
+Expect: Two rows: `app 10.1.0.0/23 400 507` then `web 10.1.2.0/24 200 251`.
+
+Pester: "names subnets from -Requirement", "places largest first whatever order the hosts are given in, keeping names"
+
+## 9 Test-IPAddress
+
+### 9.1 Test-IPAddress: special-use addresses
+
+One address from each common special-use block, with the registry row and RFC it came from.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Test-IPAddress 10.0.0.1, 100.64.0.1, 169.254.1.1, 127.0.0.1, 224.0.0.251, 192.0.2.10 | Format-Table Ip, Scope, SpecialUse, Source
+}
+```
+
+Expect: Six rows: 10.0.0.1 Private Private-Use `[RFC1918]`; 100.64.0.1 Cgnat Shared Address Space `[RFC6598]`; 169.254.1.1 LinkLocal Link Local `[RFC3927]`; 127.0.0.1 Loopback Loopback `[RFC1122], Section 3.2.1.3`; 224.0.0.251 Multicast Multicast `[RFC5771]`; 192.0.2.10 Documentation Documentation (TEST-NET-1) `[RFC5737]`.
+
+Pester: "classifies one address in every special-use row by that row", "sets the flags for <Ip>"
+
+## 10 Test-SubnetOverlap
+
+### 10.1 Test-SubnetOverlap: -Cidr, with and without -OverlapOnly
+
+Every pair, then only the pairs that share addresses.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Test-SubnetOverlap 10.0.0.0/24, 10.0.0.128/25, 10.1.0.0/16 | Format-Table Left, Relation, Right
+    Test-SubnetOverlap 10.0.0.0/24, 10.0.0.128/25, 10.1.0.0/16 -OverlapOnly | Format-Table Left, Relation, Right
+}
+```
+
+Expect: Three rows: `10.0.0.0/24 Contains 10.0.0.128/25`, `10.0.0.0/24 Disjoint 10.1.0.0/16`, `10.0.0.128/25 Disjoint 10.1.0.0/16`; then one row, `10.0.0.0/24 Contains 10.0.0.128/25`.
+
+Pester: "returns one row per pair with the relation read left to right", "finds a deliberate overlap with -OverlapOnly"
+
+## 11 Get-ExternalIpAddress
+
+### 11.1 Get-ExternalIpAddress: default (Auto)
+
+This host's public address, asked of every endpoint in ip-sources.json. Needs network access; the address itself is not part of the Expect.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $result = Get-ExternalIpAddress
+    $result | Format-List Agreed, Source
+    $result.Answers.Endpoint -join ', '
+}
+```
+
+Expect: Agreed `True`, Source `Get-ExternalIpAddress -TimeoutSec 10 -Tool Native` (curl is on PATH on Windows 10 and later); then `ipify, aws-checkip, icanhazip`.
+
+Pester: "asks every endpoint in ip-sources.json and reports agreement", "uses curl when it is the chosen tool", "asks the real endpoints and RDAP" (Live)
+
+### 11.2 Get-ExternalIpAddress: -Tool DotNet -TimeoutSec
+
+The .NET floor (HttpClient through Invoke-WebRequest) with a shorter timeout. Needs network access.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $result = Get-ExternalIpAddress -Tool DotNet -TimeoutSec 5
+    $result | Format-List Agreed, Source
+    $result.Answers[0].Source
+}
+```
+
+Expect: Agreed `True`, Source `Get-ExternalIpAddress -TimeoutSec 5 -Tool DotNet`; then `Invoke-WebRequest -Uri 'https://api.ipify.org?format=json' -MaximumRedirection 5 -TimeoutSec 5`.
+
+Pester: "asks every endpoint in ip-sources.json and reports agreement", "keeps going when one endpoint fails"
+
+## 12 Get-NetworkConnection
+
+### 12.1 Get-NetworkConnection: -Protocol -State
+
+TCP listeners only, with the native tool (Get-NetTCPConnection on Windows).
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $rows = @(Get-NetworkConnection -Protocol Tcp -State Listen)
+    $rows | Select-Object -First 3 | Format-Table Protocol, LocalIp, LocalPort, State, ProcessName
+    'Rows {0}, states {1}, Source {2}' -f $rows.Count, (($rows.State | Select-Object -Unique) -join ','), (($rows.Source | Select-Object -Unique) -join ' + ')
+}
+```
+
+Expect: Up to three Tcp Listen rows with a LocalPort and a ProcessName (for example `services`, `System`, `svchost`); then a line like `Rows 66, states Listen, Source Get-NetTCPConnection` (the count varies by machine; the only state is Listen).
+
+Pester: "filters by -State", "always runs ss -tunap (ss -tnap drops the Netid column) and filters -Protocol after", "maps Get-NetTCPConnection objects"
+
+### 12.2 Get-NetworkConnection: -Tool DotNet
+
+The .NET floor, which has no process information and says so in Source.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $rows = @(Get-NetworkConnection -Tool DotNet)
+    'Rows {0}, with a process {1}' -f $rows.Count, @($rows | Where-Object ProcessId).Count
+    ($rows.Source | Select-Object -Unique) -join "`n"
+}
+```
+
+Expect: A line like `Rows 305, with a process 0` (the count varies; the second number is always 0), then the three IPGlobalProperties calls (`GetActiveTcpListeners()`, `GetActiveTcpConnections()`, `GetActiveUdpListeners()`), each ending `# .NET floor: no process information`.
+
+Pester: "lists a loopback listener with no process and says so in Source"
+
+## 13 Get-NetworkHost
+
+### 13.1 Get-NetworkHost: default (Auto)
+
+A summary of this host with the native tools.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-NetworkHost | Format-List HostName, Os, Firewall, Source
+}
+```
+
+Expect: HostName is this computer's name, Os `Microsoft Windows 10.0.<build>`, Firewall `Enabled`, `Partial`, `Disabled` or `ThirdParty` (see 1.10), Source `[System.Net.Dns]::GetHostName(); Get-NetIPConfiguration -All; Get-NetRoute; Get-NetFirewallProfile; Get-CimInstance -Namespace root/SecurityCenter2 -ClassName FirewallProduct`.
+
+Pester: "summarises this host with the native tools" (Live), "reads Get-NetFirewallProfile: every profile off is Disabled", "reads a mix of profiles as Partial"
+
+### 13.2 Get-NetworkHost: -Tool DotNet
+
+The same summary with interfaces and routes from the .NET floor; the firewall is still read with the native cmdlets, since .NET has no firewall API.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-NetworkHost -Tool DotNet | Format-List HostName, Os, Firewall, FirewallReason, Source
+}
+```
+
+Expect: The same HostName, Os and Firewall as 13.1, a FirewallReason, and a Source that starts `[System.Net.Dns]::GetHostName(); [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces();` and says `# .NET floor: routes derived from addresses and gateways, no route table`.
+
+Pester: "summarises this host on the .NET floor" (Live)
+
+## 14 Get-NetworkInterface
+
+### 14.1 Get-NetworkInterface: default (Auto)
+
+Adapters from Get-NetIPConfiguration, with addresses and gateways.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $rows = @(Get-NetworkInterface)
+    $rows | Where-Object Status -eq 'Up' | Select-Object -First 3 | Format-Table Name, Status, Ip, PrefixLength, Gateway
+    'Rows {0}, Source {1}' -f $rows.Count, (($rows.Source | Select-Object -Unique) -join ' + ')
+}
+```
+
+Expect: Up to three Up adapters (for example `Wi-Fi Up {192.168.0.6} {24} {192.168.0.1}`), then a line like `Rows 9, Source Get-NetIPConfiguration -All`.
+
+Pester: "maps Get-NetIPConfiguration (flattened) objects", "names the cmdlet in Source and looks up the vendor", "lists adapters with the native tool" (Live)
+
+### 14.2 Get-NetworkInterface: -Name with a wildcard
+
+The first three letters of the first Up adapter's name, as a wildcard.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $first = (Get-NetworkInterface | Where-Object Status -eq 'Up' | Select-Object -First 1).Name
+    $match = @(Get-NetworkInterface -Name "$($first.Substring(0, 3))*")
+    'Pattern {0}*: {1} row(s), all match: {2}' -f $first.Substring(0, 3), $match.Count, (@($match | Where-Object { $_.Name -notlike "$($first.Substring(0, 3))*" }).Count -eq 0)
+}
+```
+
+Expect: A line like `Pattern Wi-*: 1 row(s), all match: True`; the last word is always `True`.
+
+Pester: none
+
+### 14.3 Get-NetworkInterface: -Tool DotNet
+
+The .NET floor lists every NetworkInterface, including ones Get-NetIPConfiguration hides.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $rows = @(Get-NetworkInterface -Tool DotNet)
+    $rows | Where-Object Status -eq 'Up' | Select-Object -First 3 | Format-Table Name, Status, Ip, PrefixLength
+    'Rows {0}, Source {1}' -f $rows.Count, (($rows.Source | Select-Object -Unique) -join ' + ')
+}
+```
+
+Expect: Up to three Up adapters, among them `Loopback Pseudo-Interface 1 Up {::1, 127.0.0.1} {128, 8}`; then a line like `Rows 76, Source [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()` (more rows than 14.1).
+
+Pester: "lists adapters on the .NET floor" (Live)
+
+## 15 Get-NetworkNeighbor
+
+### 15.1 Get-NetworkNeighbor: default (Auto)
+
+The neighbour (ARP and NDP) table from Get-NetNeighbor.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $rows = @(Get-NetworkNeighbor)
+    $rows | Select-Object -First 3 | Format-Table Ip, MacAddress, Vendor, State, Interface
+    'Rows {0}, Source {1}' -f $rows.Count, (($rows.Source | Select-Object -Unique) -join ' + ')
+}
+```
+
+Expect: Up to three rows with an Ip, a MacAddress, a State such as `Permanent` or `Reachable` and an Interface; then a line like `Rows 44, Source Get-NetNeighbor`.
+
+Pester: "maps Get-NetNeighbor objects; an all-zero MAC is no MAC", "returns rows with Vendor, State, Interface and the command line", "lists the live neighbour table" (Live)
+
+### 15.2 Get-NetworkNeighbor: -IncludeUnresolved
+
+Entries with no MAC (Unreachable, Incomplete) are left out unless asked for.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    'without {0}, with -IncludeUnresolved {1}' -f @(Get-NetworkNeighbor).Count, @(Get-NetworkNeighbor -IncludeUnresolved).Count
+}
+```
+
+Expect: A line like `without 44, with -IncludeUnresolved 71`; the second number is never smaller.
+
+Pester: none
+
+### 15.3 Get-NetworkNeighbor: -Tool DotNet on Windows
+
+Windows has no .NET floor for the neighbour table, and the error says so.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    try { Get-NetworkNeighbor -Tool DotNet } catch { $_.Exception.Message }
+}
+```
+
+Expect: `Get-NetworkNeighbor has no .NET floor here: .NET has no API that reads the neighbour table on Windows. Install Get-NetNeighbor or arp and run Get-NetworkNeighbor -Tool Native.`
+
+Pester: "has no .NET floor on Windows"
+
+## 16 Get-NetworkRoute
+
+### 16.1 Get-NetworkRoute: -AddressFamily IPv4
+
+The IPv4 route table, with the default route.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $rows = @(Get-NetworkRoute -AddressFamily IPv4)
+    $rows | Where-Object PrefixLength -eq 0 | Format-Table Destination, PrefixLength, NextHop, Interface, Metric
+    'Rows {0}, all IPv4 {1}, Source {2}' -f $rows.Count, (@($rows | Where-Object { $_.Destination -match ':' }).Count -eq 0), (($rows.Source | Select-Object -Unique) -join ' + ')
+}
+```
+
+Expect: One row `0.0.0.0 0 <your gateway> <your adapter> <metric>` (for example `0.0.0.0 0 192.168.0.1 Wi-Fi 0`); then a line like `Rows 30, all IPv4 True, Source Get-NetRoute`.
+
+Pester: "asks only for IPv4 with -AddressFamily IPv4", "maps Get-NetRoute objects", "reads the live route table" (Live)
+
+### 16.2 Get-NetworkRoute: -Tool DotNet
+
+Routes derived from interface addresses and gateways; there is no route table on the .NET floor.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $rows = @(Get-NetworkRoute -Tool DotNet -AddressFamily IPv4)
+    $rows | Select-Object -First 3 | Format-Table Destination, PrefixLength, NextHop, Interface
+    ($rows.Source | Select-Object -Unique) -join "`n"
+}
+```
+
+Expect: On-link rows for each Up adapter's prefix (for example `192.168.0.0 24` with an empty NextHop) and a `0.0.0.0 0 <gateway>` row; then `[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | ForEach-Object { $_.GetIPProperties() }  # .NET floor: routes derived from addresses and gateways, no route table`.
+
+Pester: "derives on-link routes from interface addresses on the .NET floor"
+
+## 17 Invoke-NetworkScan
+
+### 17.1 Invoke-NetworkScan: -Target -Port -Timeout
+
+A loopback listener and a closed port. Without nmap on PATH, Auto takes the TcpClient path; with nmap, Source is the nmap command line instead.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start()
+    $port = $listener.LocalEndpoint.Port
+    $rows = Invoke-NetworkScan 127.0.0.1 -Port $port, 1 -Timeout 500
+    $listener.Stop()
+    $rows | Format-Table Target, Port, Open
+    ($rows.Source | Select-Object -Unique) -join "`n"
+}
+```
+
+Expect: Two rows: `127.0.0.1 <port> True` and `127.0.0.1 1 False`; then two Source lines `[System.Net.Sockets.TcpClient]::new([System.Net.Sockets.AddressFamily]::InterNetwork).ConnectAsync('127.0.0.1', <port>).Wait(500)  # 64 at a time; nmap not used` and the same for port 1.
+
+Pester: "connects to every target and port with TcpClient", "runs nmap with -oX and nothing beyond -n -Pn -p, and returns Test-NetworkPort rows"
+
+### 17.2 Invoke-NetworkScan: a CIDR target, -Tool DotNet
+
+A /30 target expands to its two usable addresses.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $rows = @(Invoke-NetworkScan 127.0.0.0/30 -Port 1 -Tool DotNet -Timeout 300)
+    $rows | Format-Table Target, Ip, Port, Open
+}
+```
+
+Expect: Two rows: `127.0.0.1 127.0.0.1 1 False` and `127.0.0.2 127.0.0.2 1 False`.
+
+Pester: "expands a CIDR target to its usable addresses"
+
+### 17.3 Invoke-NetworkScan: a target too large to expand
+
+Without nmap, more than 4096 addresses is refused before any connect.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    try { Invoke-NetworkScan 10.0.0.0/19 -Port 80 -Tool DotNet } catch { $_.Exception.Message }
+}
+```
+
+Expect: `10.0.0.0/19 has 8190 addresses; without nmap Invoke-NetworkScan expands at most 4096. Install nmap or split the prefix (New-SubnetPlan 10.0.0.0/19 -PrefixLength 20).`
+
+Pester: "refuses to expand more than 4096 addresses"
+
+## 18 Resolve-NetworkName
+
+### 18.1 Resolve-NetworkName: -Name, A and PTR
+
+localhost, a forward lookup and a reverse lookup with the native resolver (Resolve-DnsName on Windows). Needs DNS.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Resolve-NetworkName localhost | Format-Table Name, Type, Data
+    (Resolve-NetworkName one.one.one.one -Type A).Data -join ', '
+    (Resolve-NetworkName 1.1.1.1).Data
+    (Resolve-NetworkName one.one.one.one -Type A)[0].Source
+}
+```
+
+Expect: One row `localhost A 127.0.0.1`; then `1.0.0.1, 1.1.1.1`; then `one.one.one.one`; then `Resolve-DnsName -Name one.one.one.one -Type A -DnsOnly`.
+
+Pester: "resolves localhost", "maps Resolve-DnsName objects, answers only by default", "asks for PTR with -x when given an address", "resolves with the native tool" (Live)
+
+### 18.2 Resolve-NetworkName: -Type MX -Server
+
+A record type the .NET floor cannot ask for, sent to a named server. Needs DNS.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Resolve-NetworkName example.com -Type MX -Server 1.1.1.1 | Format-Table Name, Type, Data
+    (Resolve-NetworkName example.com -Type MX -Server 1.1.1.1)[0].Source
+}
+```
+
+Expect: One row `example.com MX 0 .` (example.com publishes a null MX); then `Resolve-DnsName -Name example.com -Type MX -DnsOnly -Server 1.1.1.1`.
+
+Pester: "passes -Type and -Server to dig and keeps the command line"
+
+### 18.3 Resolve-NetworkName: -Tool DotNet refusals
+
+The .NET floor asks only the system resolver for A, AAAA and PTR, and says what to install otherwise.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    try { Resolve-NetworkName example.com -Type MX -Tool DotNet } catch { $_.Exception.Message }
+    try { Resolve-NetworkName example.com -Server 1.1.1.1 -Tool DotNet } catch { $_.Exception.Message }
+}
+```
+
+Expect: `Resolve-NetworkName -Type MX is not available with DotNet. Install dig (dnsutils or bind-utils) on Linux, or use Resolve-DnsName on Windows, then run with -Tool Native.` then `Resolve-NetworkName -Server needs a native resolver (Resolve-DnsName); the .NET floor only asks the system resolver. Install one and use -Tool Native.`
+
+Pester: "refuses record types it cannot ask for", "refuses -Server"
+
+## 19 Test-NetworkPath
+
+### 19.1 Test-NetworkPath: -Target -Count (Auto)
+
+Loopback with the default tool, which is the .NET Ping on Windows.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Test-NetworkPath 127.0.0.1 -Count 2 | Format-List Target, Reachable, Sent, Received, LossPercent, AverageMs, Source
+}
+```
+
+Expect: Target `127.0.0.1`, Reachable `True`, Sent `2`, Received `2`, LossPercent `0`, AverageMs `0`, Source `[System.Net.NetworkInformation.Ping]::new() | ForEach-Object { foreach ($i in 1..2) { $_.Send('127.0.0.1', 1000) } }`.
+
+Pester: "on Windows, Auto takes the .NET path even with ping.exe installed (loopback, no tool runs)", "reaches loopback with the .NET floor"
+
+### 19.2 Test-NetworkPath: -Timeout -Tool Native
+
+The same with ping.exe.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Test-NetworkPath 127.0.0.1 -Count 2 -Timeout 500 -Tool Native | Format-List Target, Reachable, Sent, Received, LossPercent, AverageMs, Source
+}
+```
+
+Expect: The same values, with Source `ping -n 2 -w 500 127.0.0.1`.
+
+Pester: "reads Windows ping.exe replies", "returns one row with the exact command line as Source", "reaches 1.1.1.1 with the native ping" (Live)
+
+## 20 Test-NetworkPort
+
+### 20.1 Test-NetworkPort: several ports, closed
+
+One row per port, each with its IANA service name.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Test-NetworkPort 127.0.0.1 -Port 1, 2 -Timeout 500 | Format-Table Target, Port, Protocol, Open, Service
+}
+```
+
+Expect: Two rows: `127.0.0.1 1 Tcp False tcpmux` and `127.0.0.1 2 Tcp False` with an empty Service.
+
+Pester: "returns one row per port with the IANA service and the nc command line", "finds the listening port open with a latency and the closed one closed"
+
+### 20.2 Test-NetworkPort: -Protocol Udp
+
+A UDP datagram to loopback port 53; silence or a reset is not reported open.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Test-NetworkPort 127.0.0.1 -Port 53 -Protocol Udp -Timeout 500 | Format-List Port, Protocol, Open, Service, Source
+}
+```
+
+Expect: Port `53`, Protocol `Udp`, Open `False`, Service `domain`, Source starting `[System.Net.Sockets.UdpClient]::new('127.0.0.1', 53) | ForEach-Object { $_.Client.ReceiveTimeout = 500;`.
+
+Pester: "does not report a closed UDP port open"
+
+## 21 Trace-NetworkPath
+
+### 21.1 Trace-NetworkPath: -NativeTool tracert -MaxHops
+
+Naming the native tool runs it even though Auto on Windows is the .NET path.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Trace-NetworkPath 127.0.0.1 -NativeTool tracert -MaxHops 3 | Format-List Tool, Hop, Ip, RttMs, Responded, Source
+}
+```
+
+Expect: One hop: Tool `tracert`, Hop `1`, Ip `127.0.0.1`, RttMs `{0, 0, 0}`, Responded `True`, Source `tracert -d -h 3 -w 1000 127.0.0.1`.
+
+Pester: "still runs tracert by name with -NativeTool", "runs tracert -d on Windows"
+
+### 21.2 Trace-NetworkPath: -NativeTool pathping -Queries
+
+pathping reports only an average and a loss per hop. Takes about ten seconds.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Trace-NetworkPath 127.0.0.1 -NativeTool pathping -MaxHops 2 -Queries 3 | Format-List Tool, Hop, Ip, RttMs, AvgMs, LossPercent, Source
+}
+```
+
+Expect: One hop: Tool `pathping`, Hop `1`, Ip `127.0.0.1`, RttMs empty `{}`, AvgMs `0`, LossPercent `0`, Source `pathping -n -h 2 -w 1000 -q 3 127.0.0.1`.
+
+Pester: "reads Windows pathping statistics, skipping hop 0"
+
+## 22 ConvertTo-NetworkGraph
+
+### 22.1 ConvertTo-NetworkGraph: -InputObject from host, interfaces and routes
+
+This host's own view as a graph, rooted at the host.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $graph = @(Get-NetworkHost; Get-NetworkInterface; Get-NetworkRoute -AddressFamily IPv4) | ConvertTo-NetworkGraph
+    $graph | Format-List Root, NodeCount, EdgeCount, FindingCount
+    $graph.Nodes | Group-Object Kind -NoElement | Sort-Object Name | Format-Table Name, Count
+    $graph.Edges | Group-Object Kind -NoElement | Sort-Object Name | Format-Table Name, Count
+}
+```
+
+Expect: Root is this computer's name in lower case, with NodeCount, EdgeCount and FindingCount (for example 67, 66, 0); node kinds Host (1), Interface, RemoteHost (the gateway), Route, Subnet; edge kinds Contains and RoutesTo.
+
+Pester: "roots the graph at the host from Get-NetworkHost", "links host, interface, subnet and route with Contains and RoutesTo", "uses the documented Id per kind"
+
+### 22.2 ConvertTo-NetworkGraph: subnets alone
+
+A host-less graph from Get-Subnet rows, with an overlap and a subnet below its cloud's minimum.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $graph = @(Get-Subnet 10.0.0.0/24 -Cloud Azure; Get-Subnet 10.0.0.128/25 -Cloud Azure; Get-Subnet 10.0.1.0/30 -Cloud AWS 3>$null) | ConvertTo-NetworkGraph
+    'Root [{0}]' -f $graph.Root
+    $graph.Findings | Format-Table Finding, NodeId, RelatedId
+}
+```
+
+Expect: `Root []` (no host), then two findings: `BelowCloudMinimum 10.0.1.0/30@AWS` and `SubnetOverlap 10.0.0.0/24@Azure 10.0.0.128/25@Azure`.
+
+Pester: "builds a host-less graph from subnets alone", "reports <Finding> on <NodeId>", "names the related subnet of an overlap"
+
+## 23 Get-NetworkGraphData
+
+### 23.1 Get-NetworkGraphData: default
+
+Every data kind with where it was read from and when it was pulled.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-NetworkGraphData | Format-Table Kind, Location, Pulled, Entries
+}
+```
+
+Expect: Six rows in this order: CloudReservations, SpecialUse, CloudRanges, Oui, Ports, IpSources, each with Location `Bundled` or `User` (User once Update-NetworkGraphData has run), a Pulled date and an Entries count (for example CloudReservations 4, IpSources 3).
+
+Pester: "lists every kind with its location, pulled date and sources"
+
+### 23.2 Get-NetworkGraphData: -Kind
+
+The parsed document for one kind: Azure's reserved addresses, each citing its page.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $doc = Get-NetworkGraphData -Kind CloudReservations
+    $doc.Data.clouds.Azure.reserved | ForEach-Object { [pscustomobject]$_ } | Format-Table from, offset, role
+}
+```
+
+Expect: Five rows: `first 0 Network address`, `first 1 Default gateway`, `first 2 Azure DNS mapping`, `first 3 Azure DNS mapping`, `last 0 Broadcast address`.
+
+Pester: "returns the parsed document with -Kind"
+
+### 23.3 Get-NetworkGraphData: -Sources
+
+One row per source URL behind the data.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Get-NetworkGraphData -Sources | Group-Object Kind -NoElement | Format-Table Name, Count
+    (Get-NetworkGraphData -Sources | Where-Object Kind -eq 'SpecialUse' | Select-Object -First 1).Url
+}
+```
+
+Expect: Source counts per kind (CloudRanges 8, CloudReservations 6, IpSources 6, Oui 1, Ports 1, SpecialUse 5 as of 2026-10-07), then `https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry-1.csv`.
+
+Pester: "returns source rows with -Sources"
+
+## 24 Update-NetworkGraphData
+
+### 24.1 Update-NetworkGraphData: -Kind -Path -PassThru
+
+One kind harvested into a throwaway folder instead of the user cache. Needs network access (iana.org).
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    $out = Join-Path $env:TEMP 'networkgraph-check-24-1'
+    $rows = Update-NetworkGraphData -Kind SpecialUse -Path $out -PassThru
+    $rows | Format-List Kind, File, Location, Entries
+    (Get-ChildItem $out).Name
+    Remove-Item $out -Recurse -Force
+}
+```
+
+Expect: Kind `SpecialUse`, File `special-use.json`, Location `Path`, Entries `53` (as of 2026-10-07); then `special-use.json`, the only file written.
+
+Pester: "harvests into the folder given and never into src", "harvests the real sources" (Live)
+
+### 24.2 Update-NetworkGraphData: -WhatIf
+
+Shows where a harvest would write without downloading anything.
+
+```powershell
+pwsh -NoProfile -Command {
+    Set-Location 'C:\__Code\NetworkGraph'
+    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+    Update-NetworkGraphData -Kind CloudRanges -WhatIf
+}
+```
+
+Expect: `What if: Performing the operation "Harvest CloudRanges" on target "<LOCALAPPDATA>\NetworkGraph\data\cloud-ranges.json.gz".`
+
+Pester: "writes the user cache by default, which then wins over the bundled copy"

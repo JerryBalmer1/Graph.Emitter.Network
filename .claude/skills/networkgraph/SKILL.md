@@ -11,7 +11,7 @@ Read CLAUDE.md first; it holds the rules. This skill is the procedure.
 
 1. Fresh-process Pester: `pwsh -NoProfile -Command "Invoke-Pester -Path .\tests -CI"`. All green, and say the counts.
 2. `Invoke-Build Analyze`: no errors.
-3. `manual-check-list.md`: update or append items for any changed exported surface; bump item 0.1 when the version or exports change; run each block you touched and write only the Expect you saw.
+3. `manual-check-list.md`: update or append items for any changed exported surface; bump item 0.1 when the version or exports change; run each block you touched and write only the Expect you saw. `ONTOLOGY.md` and `README.md` in the same task: follow the `manual-check-list`, `ontology-doc` and `readme` skills.
 4. Stage with `git add`. Never commit, push, tag, branch or release.
 
 ## Adding an exported function

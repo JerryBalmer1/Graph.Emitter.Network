@@ -309,3 +309,52 @@ Describe 'Text parsers refuse output they do not recognise' {
         $run.Output.Trim() | Should -Be 'C|C'
     }
 }
+
+Describe 'Ontology' {
+    It "resolves every term in ONTOLOGY.md's terminology table to an exported command, a typed object property or a data file" {
+        $text = Get-Content -LiteralPath (Join-Path $RepoRoot 'ONTOLOGY.md') -Raw
+        $section = [regex]::Match($text, '(?ms)^## Terminology\s*$(.*?)(?=^## )').Groups[1].Value
+        $rows = @([regex]::Matches($section, '(?m)^\|(?!\s*-)(?!\s*Term\s*\|)\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|') | ForEach-Object { [pscustomobject]@{ Term = $_.Groups[1].Value; Names = $_.Groups[2].Value } })
+        @($rows.Term) | Should -Be @('Id', 'node', 'edge', 'finding', 'graph', 'row', 'Source', 'tool', 'data file', 'sources', 'reservation', 'cloud range')
+
+        # PSTypeName -> property names, from the hashtable literals that build each typed object.
+        # Node properties beyond Id, Kind and Name come from the graph contract in the psm1.
+        $files = @(Get-ChildItem -Path (Join-Path $ModuleRoot 'Public'), (Join-Path $ModuleRoot 'Private') -Filter '*.ps1' -File)
+        $typed = @{}
+        foreach ($file in $files) {
+            $hashtables = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null).FindAll({ param($node) $node -is [System.Management.Automation.Language.HashtableAst] }, $true)
+            foreach ($hashtable in $hashtables) {
+                $pair = $hashtable.KeyValuePairs | Where-Object { $_.Item1.Extent.Text -eq 'PSTypeName' } | Select-Object -First 1
+                if (-not $pair) { continue }
+                $typeName = $pair.Item2.Extent.Text.Trim('''', '"')
+                if (-not $typed.ContainsKey($typeName)) { $typed[$typeName] = [System.Collections.Generic.HashSet[string]]::new() }
+                foreach ($key in $hashtable.KeyValuePairs) { $null = $typed[$typeName].Add($key.Item1.Extent.Text.Trim('''', '"')) }
+            }
+        }
+        $contract = InModuleScope NetworkGraph { $script:NetworkGraphNodeContract }
+        foreach ($name in @($contract.Values | ForEach-Object { $_ }) + 'Source') { $null = $typed['NetworkGraph.Node'].Add($name) }
+        $exported = @((Get-Module NetworkGraph).ExportedFunctions.Keys)
+
+        foreach ($row in $rows) {
+            $names = @([regex]::Matches($row.Names, '`([^`]+)`') | ForEach-Object { $_.Groups[1].Value })
+            $names.Count | Should -BeGreaterThan 0 -Because "the '$($row.Term)' row must name something in the module"
+            foreach ($name in $names) {
+                $resolved = if ($name -match '^[A-Z][a-z]+-\w+$') { $exported -contains $name }
+                elseif ($name -match '^(NetworkGraph\.\w+)\.(\w+)$') { $typed.ContainsKey($Matches[1]) -and $typed[$Matches[1]].Contains($Matches[2]) }
+                elseif ($name -match '^NetworkGraph\.\w+$') { $typed.ContainsKey($name) }
+                elseif ($name -match '[/\\]|\.(json|gz|md)$') { (Test-Path -LiteralPath (Join-Path $ModuleRoot $name)) -or (Test-Path -LiteralPath (Join-Path $RepoRoot $name)) }
+                else { $false }
+                $resolved | Should -BeTrue -Because "'$name' in the '$($row.Term)' row must be an exported command, NetworkGraph.<Type>[.<Property>] or a data file"
+            }
+        }
+    }
+
+    It "keeps the two doors: README's first line points to ONTOLOGY.md and ONTOLOGY.md links back first" {
+        $readme = @(Get-Content -LiteralPath (Join-Path $RepoRoot 'README.md'))
+        $readme[0] | Should -BeLike '> *ONTOLOGY.md*'
+        @($readme | Select-Object -Skip 1 | Where-Object { $_ -match 'ontolog' }) | Should -BeNullOrEmpty
+        $ontology = @(Get-Content -LiteralPath (Join-Path $RepoRoot 'ONTOLOGY.md') | Where-Object { $_.Trim() })
+        $ontology[0] | Should -BeLike '> *'
+        $ontology[1] | Should -BeLike '*README.md*'
+    }
+}
