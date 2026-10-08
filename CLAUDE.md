@@ -23,7 +23,7 @@ Node types never have a property named `Address`, `Count`, `Length`, or any othe
 .build.ps1                       Invoke-Build: Test (default), Analyze, Assemble, UpdateData, CheckData
 .claude/skills/networkgraph/     repo-only agent skill (working in this repo; not shipped)
 .claude/skills/manual-check-list, ontology-doc, readme   repo-only skills keeping the three files below in step with the code (ported from TerraformGraph)
-README.md                        sysadmin door; line 1 is the only ontology mention (skill readme)
+README.md                        sysadmin door; README line 1 is a banner linking ONTOLOGY.md; further mentions are allowed; Pester checks only the two banners (skill readme)
 ONTOLOGY.md                      agent door; banner, then backlink to README (skill ontology-doc)
 docs/graph-shape.md              node and edge contract, and where it came from (TerraformGraph)
 docs/design.md                   design notes and judgement calls
