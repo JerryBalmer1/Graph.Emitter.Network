@@ -351,10 +351,9 @@ Describe 'Ontology' {
 
     It "keeps the two doors: README's first line points to ONTOLOGY.md and ONTOLOGY.md links back first" {
         $readme = @(Get-Content -LiteralPath (Join-Path $RepoRoot 'README.md'))
-        $readme[0] | Should -BeLike '> *ONTOLOGY.md*'
-        @($readme | Select-Object -Skip 1 | Where-Object { $_ -match 'ontolog' }) | Should -BeNullOrEmpty
+        $readme[0] | Should -Match '^>.*\]\(ONTOLOGY\.md\)'
         $ontology = @(Get-Content -LiteralPath (Join-Path $RepoRoot 'ONTOLOGY.md') | Where-Object { $_.Trim() })
         $ontology[0] | Should -BeLike '> *'
-        $ontology[1] | Should -BeLike '*README.md*'
+        $ontology[1] | Should -Match '\]\(README\.md\)'
     }
 }

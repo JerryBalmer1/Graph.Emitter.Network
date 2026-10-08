@@ -197,7 +197,7 @@ $graph.Findings | Format-Table Finding, NodeId, Detail
 @(Get-Subnet 10.0.0.0/24 -Cloud Azure; Get-Subnet 10.0.0.128/25 -Cloud Azure) | ConvertTo-NetworkGraph
 ```
 
-Nodes (Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn), edges (Contains, RoutesTo, HopsTo, ConnectsTo, OwnedBy, ResolvesTo, BelongsTo) and findings (SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface). On this machine on 2026-10-07 the first example gave 345 Connection, 75 Process, 53 Route, 31 RemoteHost, 10 Interface, 7 Hop, 3 Cloud, 3 Asn, 2 Subnet and 1 Host nodes, with 26 NonCloudPublicConnection and 26 WildcardListener findings. The property names match TerraformGraph's `ConvertTo-TerraformResourceGraph`; [docs/graph-shape.md](docs/graph-shape.md) is the contract, and lists the two differences that remain.
+Nodes (Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn), edges (Contains, RoutesTo, HopsTo, ConnectsTo, OwnedBy, ResolvesTo, BelongsTo) and findings (SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface). On this machine on 2026-10-07 the first example gave 345 Connection, 75 Process, 53 Route, 31 RemoteHost, 10 Interface, 7 Hop, 3 Cloud, 3 Asn, 2 Subnet and 1 Host nodes, with 26 NonCloudPublicConnection and 26 WildcardListener findings. The property names match TerraformGraph's `ConvertTo-TerraformResourceGraph`; [docs/graph-shape.md](docs/graph-shape.md) is the contract, and lists the two differences that remain. [ONTOLOGY.md](ONTOLOGY.md#terminology) defines each node and edge Kind.
 
 ### Shared view with TerraformGraph (Planned)
 

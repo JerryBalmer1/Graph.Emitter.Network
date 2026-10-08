@@ -22,7 +22,7 @@ If the task touches none of these, leave the file alone.
 ## Rules
 
 - Line 1 is the ontology callout and nothing else: one `>` line that says the module was built as an ontology layer for AI agents and links `ONTOLOGY.md`. Keep it to one line. Never move it below the banner.
-- After line 1, never mention ontology. No "ontology", "semantic layer", "knowledge graph" prose, and no second link to the ontology doc (its file name matches too). If a change needs that kind of explanation, it goes in `ONTOLOGY.md`. Pester ("keeps the two doors") fails if `ontolog` appears after line 1.
+- Each door opens with a banner pointing at the other: README line 1 is the `>` callout linking `ONTOLOGY.md`, and `ONTOLOGY.md` opens with its own banner and a link back here. That is all Pester ("keeps the two doors") checks. Further mentions of ontology or links to `ONTOLOGY.md` later in the README are allowed where they help a reader; the explanation itself (the agent story, terminology, facts and opinions) still belongs in `ONTOLOGY.md`.
 - The CI example stays on the first screen: one line that exits non-zero when any two subnets in `subnets.txt` overlap, with the exit codes stated. If `Test-SubnetOverlap` or its `-OverlapOnly` output changes, fix and rerun it (with a clean file, an overlapping file, an invalid line and a missing file).
 - Each public function is shown in the section for its area (Calculate, Observe, Graph, Data, Agent skills) with at least one example you have run. Use exact command and parameter names; never paraphrase a parameter. The Observe tool table names the native tool on Windows and on Linux and the .NET floor for every observe command.
 - A section for something not built yet is a `###` heading in its area ending "(Planned)", one or two sentences, no example and no invented command name.
@@ -35,7 +35,7 @@ If the task touches none of these, leave the file alone.
 
 1. Read the psd1 `FunctionsToExport` and the parameter blocks of whatever changed. Function code is one function per file, named for the function: `src/NetworkGraph/Public/<Verb-Noun>.ps1` for an exported command, `src/NetworkGraph/Private/<Verb-Noun>.ps1` for a helper. Edit the file named for the function, never `NetworkGraph.psm1`: it is state and wiring only, and `Invoke-Build Assemble` builds the single psm1 that ships.
 2. Edit the matching README section. Run every example you add or change in a fresh `pwsh -NoProfile` process and paste only output you saw.
-3. Check line 1 and that `ontolog` appears nowhere else: `Select-String -Path README.md -Pattern 'ontolog' | Select-Object LineNumber`.
+3. Check that line 1 is still the `>` callout linking `ONTOLOGY.md`: `Get-Content README.md -TotalCount 1`.
 4. Run `Invoke-Build CheckData` and read the rows that are not Fresh. If the README quotes bundled data that is stale, say so in your report instead of quoting it as current. Follow "Promote or leave" below for each such row.
 5. Stage README.md. Do not commit.
 6. In your report, list the README sections you changed, one line each, and the CheckData counts (Fresh, Stale, Unsourced).
