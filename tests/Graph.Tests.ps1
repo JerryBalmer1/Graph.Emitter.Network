@@ -241,7 +241,7 @@ Describe 'Every Source is pasteable' {
             $source = $entry.Source
             if ($seen.ContainsKey($source)) { continue }
             $seen[$source] = 1
-            Write-Host ('{0,-42} {1}' -f $entry.From, $source)
+            Write-Verbose ('{0,-42} {1}' -f $entry.From, $source)
             if ($source -match $citation) { continue }
             $first = ($source -split '\s+')[0]
             $isCommand = $first -match '^[A-Za-z]+-[A-Za-z]+$' -and [bool](Get-Command -Name $first -ErrorAction SilentlyContinue)
