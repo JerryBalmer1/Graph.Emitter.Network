@@ -8,7 +8,10 @@ function Get-NetworkRoute {
         has no route table to read; it derives the routes the interface configuration implies (one
         on-link route per address prefix, one default route per gateway, no metric) and says so in
         Source. NextHop is $null for an on-link route. ConvertTo-NetworkGraph turns these rows into
-        the RoutesTo edges of the graph.
+        the RoutesTo edges of the graph. InterfaceKey is the key of the interface the route names
+        (the interface GUID on Windows, the ifindex on Linux; see Get-NetworkInterface), looked up
+        by index or name in this host's interface table at the same moment; Source names that
+        lookup after the route command.
 
     .PARAMETER AddressFamily
         IPv4, IPv6, or both (default).
@@ -22,7 +25,8 @@ function Get-NetworkRoute {
         The default routes.
 
     .OUTPUTS
-        NetworkGraph.Route: Destination, PrefixLength, Cidr, NextHop, Interface, Metric, Source.
+        NetworkGraph.Route: Destination, PrefixLength, Cidr, NextHop, Interface, InterfaceKey, Metric,
+        Source.
     #>
     [CmdletBinding()]
     [OutputType('NetworkGraph.Route')]
@@ -38,24 +42,26 @@ function Get-NetworkRoute {
 
     $candidates = $IsWindows ? @('Get-NetRoute') : @('ip')
     $chosen = Resolve-NetworkGraphTool -Tool $Tool -Candidate $candidates -CommandName 'Get-NetworkRoute'
+    $keys = Get-NetworkGraphInterfaceKeyMap
+    $withKey = { param($Source) $Source.StartsWith($keys.Source) ? $Source : "$Source; $($keys.Source)" }
 
     $rows = switch ($chosen) {
         'Get-NetRoute' {
-            foreach ($row in ConvertFrom-NetworkGraphNetRoute -InputObject @(Get-NetRoute -ErrorAction SilentlyContinue)) { $row | Add-Member Source 'Get-NetRoute' -PassThru }
+            foreach ($row in ConvertFrom-NetworkGraphNetRoute -InputObject @(Get-NetRoute -ErrorAction SilentlyContinue) -KeyMap $keys) { $row | Add-Member Source (& $withKey 'Get-NetRoute') -PassThru }
         }
         'ip' {
             if ('IPv4' -in $AddressFamily) {
                 $run = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'route', 'show', 'table', 'main' -OkExitCodes 0
-                foreach ($row in ConvertFrom-NetworkGraphIpRouteJson -Text $run.Output -Version 4) { $row | Add-Member Source $run.CommandLine -PassThru }
+                foreach ($row in ConvertFrom-NetworkGraphIpRouteJson -Text $run.Output -Version 4 -KeyMap $keys) { $row | Add-Member Source (& $withKey $run.CommandLine) -PassThru }
             }
             if ('IPv6' -in $AddressFamily) {
                 $run = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', '-6', 'route', 'show', 'table', 'main' -OkExitCodes 0
-                foreach ($row in ConvertFrom-NetworkGraphIpRouteJson -Text $run.Output -Version 6) { $row | Add-Member Source $run.CommandLine -PassThru }
+                foreach ($row in ConvertFrom-NetworkGraphIpRouteJson -Text $run.Output -Version 6 -KeyMap $keys) { $row | Add-Member Source (& $withKey $run.CommandLine) -PassThru }
             }
         }
         'DotNet' {
-            foreach ($row in Get-NetworkGraphDotNetRoute) {
-                $row | Add-Member Source '[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | ForEach-Object { $_.GetIPProperties() }  # .NET floor: routes derived from addresses and gateways, no route table' -PassThru
+            foreach ($row in Get-NetworkGraphDotNetRoute -KeyMap $keys) {
+                $row | Add-Member Source (& $withKey '[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | ForEach-Object { $_.GetIPProperties() }  # .NET floor: routes derived from addresses and gateways, no route table') -PassThru
             }
         }
     }

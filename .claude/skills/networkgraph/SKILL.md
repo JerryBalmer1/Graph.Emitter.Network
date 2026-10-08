@@ -39,3 +39,5 @@ Read CLAUDE.md first; it holds the rules. This skill is the procedure.
 ## Changing the graph
 
 Change docs/graph-shape.md, `$script:NetworkGraphNodeContract` in the psm1 and the tests together. No node property named Address, Count, Length or any System.Array member.
+
+Every edge has a Source: `Add-NetworkGraphEdge -Source` is mandatory, and the Source is that of the row that asserted the relation (the table in docs/graph-shape.md "Edge properties"). Interface and Route Ids are built on `InterfaceKey`, never on the alias: a parser that names an interface by index or name takes `-KeyMap` (`Get-NetworkGraphInterfaceKeyMap`) and passes `-InterfaceKey` to its row builder.

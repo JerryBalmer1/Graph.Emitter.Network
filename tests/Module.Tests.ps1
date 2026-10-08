@@ -5,8 +5,8 @@ BeforeAll {
 }
 
 Describe 'Module' {
-    It 'is version 0.1.1 and needs PowerShell 7.4' {
-        $Manifest.ModuleVersion | Should -Be '0.1.1'
+    It 'is version 0.2.0 and needs PowerShell 7.4' {
+        $Manifest.ModuleVersion | Should -Be '0.2.0'
         $Manifest.PowerShellVersion | Should -Be '7.4'
     }
 
@@ -355,5 +355,19 @@ Describe 'Ontology' {
         $ontology = @(Get-Content -LiteralPath (Join-Path $RepoRoot 'ONTOLOGY.md') | Where-Object { $_.Trim() })
         $ontology[0] | Should -BeLike '> *'
         $ontology[1] | Should -Match '\]\(README\.md\)'
+    }
+}
+
+Describe 'graph-node skill (copied from GraphNode, read-only here)' {
+    It 'front-matter version equals GraphNode''s ModuleVersion' {
+        $graphNodeManifest = 'C:\__Code\GraphNode\src\GraphNode\GraphNode.psd1'
+        if (-not (Test-Path -LiteralPath $graphNodeManifest)) {
+            Set-ItResult -Skipped -Because "GraphNode is not checked out at $graphNodeManifest"
+            return
+        }
+        $skill = Get-Content -LiteralPath (Join-Path $RepoRoot '.claude' 'skills' 'graph-node' 'SKILL.md') -Raw
+        $front = [regex]::Match($skill, '\A---\r?\n(.*?)\r?\n---', 'Singleline').Groups[1].Value
+        $version = [regex]::Match($front, '(?m)^version:\s*(\S+)\s*$').Groups[1].Value
+        $version | Should -Be (Import-PowerShellDataFile -Path $graphNodeManifest).ModuleVersion -Because 'the copy in .claude/skills/graph-node must be recopied from GraphNode when GraphNode''s version changes'
     }
 }

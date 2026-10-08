@@ -10,6 +10,9 @@ function Get-NetworkNeighbor {
         for the neighbour table, so on Windows and on macOS (no /proc) -Tool DotNet is a terminating
         error. Vendor comes
         from Get-MacAddressVendor and is $null for a locally-administered (often randomised) MAC.
+        InterfaceKey is the key of the interface the neighbour was seen on (the interface GUID on
+        Windows, the ifindex on Linux; see Get-NetworkInterface), looked up by index or name in this
+        host's interface table at the same moment; Source names that lookup after the command.
 
     .PARAMETER Tool
         Auto (native when installed, else .NET), Native, or DotNet.
@@ -21,7 +24,7 @@ function Get-NetworkNeighbor {
         Get-NetworkNeighbor | Where-Object Vendor
 
     .OUTPUTS
-        NetworkGraph.Neighbor: Ip, MacAddress, Vendor, State, Interface, Source.
+        NetworkGraph.Neighbor: Ip, MacAddress, Vendor, State, Interface, InterfaceKey, Source.
     #>
     [CmdletBinding()]
     [OutputType('NetworkGraph.Neighbor')]
@@ -41,22 +44,24 @@ function Get-NetworkNeighbor {
         default { $null }
     }
     $chosen = Resolve-NetworkGraphTool -Tool $Tool -Candidate $candidates -CommandName 'Get-NetworkNeighbor' -NoDotNet $noDotNet
+    $keys = Get-NetworkGraphInterfaceKeyMap
+    $withKey = { param($Source) "$Source; $($keys.Source)" }
 
     $rows = switch ($chosen) {
         'Get-NetNeighbor' {
-            foreach ($row in ConvertFrom-NetworkGraphNetNeighbor -InputObject @(Get-NetNeighbor -ErrorAction SilentlyContinue)) { $row | Add-Member Source 'Get-NetNeighbor' -PassThru }
+            foreach ($row in ConvertFrom-NetworkGraphNetNeighbor -InputObject @(Get-NetNeighbor -ErrorAction SilentlyContinue) -KeyMap $keys) { $row | Add-Member Source (& $withKey 'Get-NetNeighbor') -PassThru }
         }
         'ip' {
             $run = Invoke-NetworkGraphNative -FilePath ip -ArgumentList '-j', 'neigh' -OkExitCodes 0
-            foreach ($row in ConvertFrom-NetworkGraphIpNeighJson -Text $run.Output) { $row | Add-Member Source $run.CommandLine -PassThru }
+            foreach ($row in ConvertFrom-NetworkGraphIpNeighJson -Text $run.Output -KeyMap $keys) { $row | Add-Member Source (& $withKey $run.CommandLine) -PassThru }
         }
         'arp' {
             $run = Invoke-NetworkGraphNative -FilePath arp -ArgumentList '-a' -OkExitCodes 0
-            foreach ($row in ConvertFrom-NetworkGraphArpOutput -Text $run.Output -ExitCode $run.ExitCode) { $row | Add-Member Source $run.CommandLine -PassThru }
+            foreach ($row in ConvertFrom-NetworkGraphArpOutput -Text $run.Output -ExitCode $run.ExitCode -KeyMap $keys) { $row | Add-Member Source (& $withKey $run.CommandLine) -PassThru }
         }
         'DotNet' {
             $text = [System.IO.File]::ReadAllText('/proc/net/arp')
-            foreach ($row in ConvertFrom-NetworkGraphProcNetArp -Text $text) { $row | Add-Member Source '[System.IO.File]::ReadAllText(''/proc/net/arp'')  # .NET floor: IPv4 only' -PassThru }
+            foreach ($row in ConvertFrom-NetworkGraphProcNetArp -Text $text -KeyMap $keys) { $row | Add-Member Source "[System.IO.File]::ReadAllText('/proc/net/arp'); $($keys.Source)  # .NET floor: IPv4 only" -PassThru }
         }
     }
 
@@ -71,13 +76,14 @@ function Get-NetworkNeighbor {
             $vendor = $vendors[$row.MacAddress]
         }
         [pscustomobject]@{
-            PSTypeName = 'NetworkGraph.Neighbor'
-            Ip         = $row.Ip
-            MacAddress = $row.MacAddress
-            Vendor     = $vendor
-            State      = $row.State
-            Interface  = $row.Interface
-            Source     = $row.Source
+            PSTypeName   = 'NetworkGraph.Neighbor'
+            Ip           = $row.Ip
+            MacAddress   = $row.MacAddress
+            Vendor       = $vendor
+            State        = $row.State
+            Interface    = $row.Interface
+            InterfaceKey = $row.InterfaceKey
+            Source       = $row.Source
         }
     }
 }

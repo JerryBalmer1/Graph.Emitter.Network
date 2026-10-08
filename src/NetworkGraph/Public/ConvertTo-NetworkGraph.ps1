@@ -9,12 +9,16 @@ function ConvertTo-NetworkGraph {
         Invoke-NetworkScan, Test-NetworkPath, Resolve-NetworkName, Get-ExternalIpAddress,
         Test-IPAddress, Get-Subnet and New-SubnetPlan output, and returns one NetworkGraph.Graph.
         The node and edge property names are the ones ConvertTo-TerraformResourceGraph in
-        TerraformGraph uses (Id, Kind first; edges From, To, Kind); docs/graph-shape.md is the
-        contract. Offline: remote addresses are classified with the bundled data (Test-IPAddress),
+        TerraformGraph uses (Id, Kind first; edges From, To, Kind, then Source); docs/graph-shape.md
+        is the contract. Offline: remote addresses are classified with the bundled data (Test-IPAddress),
         nothing is looked up on the network.
 
-        Node kinds and Ids: Host <hostname>; Interface <host>/if/<name>; Subnet <cidr>@<cloud>;
-        Route <host>/route/<cidr>/<next hop or on-link>/<interface>; Hop hop/<target>/<tool>/<n>;
+        Node kinds and Ids: Host <hostname>; Interface <host>/if/<InterfaceKey> (the interface
+        GUID on Windows, the ifindex on Linux, so renaming an adapter keeps its node; a row with no
+        key, and no Interface row with the same name in the input to borrow one from, falls back to
+        <host>/if/<name>); Subnet <cidr>@<cloud>; Route
+        <host>/route/<cidr>/<next hop or on-link>/<InterfaceKey, else interface name, else ->; Hop
+        hop/<target>/<tool>/<n>;
         Connection <host>/conn/<protocol>/<local ip>:<port>/<remote ip>:<port>[/<pid>] (IPv6 in
         [brackets], remote * for a listener, /<pid> when the process is known); Process
         <host>:<pid>; RemoteHost <ip>, or dns:<name> for a DNS name; Cloud cloud/<cloud>;
@@ -25,7 +29,8 @@ function ConvertTo-NetworkGraph {
         route; subnet to interface and to planned subnet), RoutesTo (route to next hop; host to
         its external address), HopsTo (host to first hop, hop to hop), ConnectsTo (connection to
         remote host; interface to neighbour), OwnedBy (connection to process), ResolvesTo (DNS
-        name to address or name), BelongsTo (remote host to cloud and to ASN).
+        name to address or name), BelongsTo (remote host to cloud and to ASN). Every edge has the
+        Source of the row that asserted it; the first row to assert an edge keeps it.
 
         Findings: SubnetOverlap (two subnets share addresses and neither is the other's planned
         parent), BelowCloudMinimum, NonCloudPublicConnection (a connection to a public address in
@@ -47,7 +52,7 @@ function ConvertTo-NetworkGraph {
 
     .OUTPUTS
         NetworkGraph.Graph: Root, Nodes (NetworkGraph.Node), Edges (NetworkGraph.Edge: From, To,
-        Kind), Findings (NetworkGraph.Finding: Finding, NodeId, RelatedId, Detail), and the script
+        Kind, Source), Findings (NetworkGraph.Finding: Finding, NodeId, RelatedId, Detail), and the script
         properties NodeCount, EdgeCount, FindingCount.
     #>
     [CmdletBinding()]
@@ -83,15 +88,28 @@ function ConvertTo-NetworkGraph {
         $hostItem = $items | Where-Object { & $is $_ 'NetworkGraph.Host' } | Select-Object -First 1
         if ($hostItem) { $HostName = $hostItem.HostName }
         $hostId = $HostName.ToLowerInvariant()
+        # The Source an edge carries: the Source of the row that asserted it. A row built by hand
+        # with no Source still gives its edges a non-empty one, naming the row's type.
+        $sourceOf = { param($Item) $Item.Source ? [string]$Item.Source : "$($Item.PSObject.TypeNames[0]) (no Source)" }
         $ensureHost = {
             Add-NetworkGraphNode -State $state -Kind Host -Id $hostId -Name $HostName -Property @{ HostName = $HostName } | Out-Null
             $hostId
         }
+        # The interface key a row carries, else the key an Interface row with the same name carries
+        # in this input (a route or neighbour row from 0.1.x, or one whose tool gave no index).
+        $interfaceKeys = @{}
+        $keyOf = {
+            param($Name, $Key)
+            if ($Key) { return [string]$Key }
+            if ($Name -and $interfaceKeys.ContainsKey($Name)) { return $interfaceKeys[$Name] }
+            $null
+        }
         $ensureInterface = {
-            param($Name, $Source)
-            $id = "$(& $ensureHost)/if/$Name"
-            $null = Add-NetworkGraphNode -State $state -Kind Interface -Id $id -Name $Name -Source $Source -Property @{ InterfaceName = $Name }
-            Add-NetworkGraphEdge -State $state -From $hostId -To $id -Kind Contains
+            param($Name, $Key, $Source, $EdgeSource)
+            $key = & $keyOf $Name $Key
+            $id = "$(& $ensureHost)/if/$($key ? $key : $Name)"
+            $null = Add-NetworkGraphNode -State $state -Kind Interface -Id $id -Name $Name -Source $Source -Property @{ InterfaceName = $Name; InterfaceKey = $key }
+            Add-NetworkGraphEdge -State $state -From $hostId -To $id -Kind Contains -Source $EdgeSource
             $id
         }
         $ensureRemote = {
@@ -138,6 +156,11 @@ function ConvertTo-NetworkGraph {
             elseif (& $is $item 'NetworkGraph.SubnetPlan') { foreach ($child in @($item.Subnets)) { $queue.Add($child) } }
             else { $queue.Add($item) }
         }
+        foreach ($item in $queue) {
+            if ((& $is $item 'NetworkGraph.Interface') -and $item.Name -and $item.InterfaceKey -and -not $interfaceKeys.ContainsKey($item.Name)) {
+                $interfaceKeys[$item.Name] = [string]$item.InterfaceKey
+            }
+        }
 
         $hops = [System.Collections.Generic.List[object]]::new()
         $skipped = @{}
@@ -149,11 +172,12 @@ function ConvertTo-NetworkGraph {
                     $node.Name = "$($item.Name) $($item.Cidr)"
                     $node.Source = & $subnetSource $item.Cidr $item.Cloud "planned in $($item.Parent) by New-SubnetPlan"
                     $parentId = & $ensureSubnet $item.Parent $item.Cloud (& $subnetSource $item.Parent $item.Cloud 'parent of a New-SubnetPlan plan')
-                    Add-NetworkGraphEdge -State $state -From $parentId -To $id -Kind Contains
+                    Add-NetworkGraphEdge -State $state -From $parentId -To $id -Kind Contains -Source $node.Source
                 }
             }
             elseif (& $is $item 'NetworkGraph.Interface') {
-                $id = & $ensureInterface $item.Name $item.Source
+                $rowSource = & $sourceOf $item
+                $id = & $ensureInterface $item.Name $item.InterfaceKey $item.Source $rowSource
                 $null = Add-NetworkGraphNode -State $state -Kind Interface -Id $id -Property @{
                     Ip = @($item.Ip); PrefixLength = @($item.PrefixLength); MacAddress = $item.MacAddress; Vendor = $item.Vendor; Status = $item.Status
                 }
@@ -164,30 +188,34 @@ function ConvertTo-NetworkGraph {
                     if ($scope -and $scope['scope'] -in 'Loopback', 'LinkLocal') { continue }
                     if ($length -ge ($ip.Contains(':') ? 128 : 32)) { continue }
                     $subnetId = & $ensureSubnet "$ip/$length" 'None' $item.Source
-                    Add-NetworkGraphEdge -State $state -From $subnetId -To $id -Kind Contains
+                    Add-NetworkGraphEdge -State $state -From $subnetId -To $id -Kind Contains -Source $rowSource
                 }
             }
             elseif (& $is $item 'NetworkGraph.Route') {
                 $owner = & $ensureHost
-                $id = "$owner/route/$($item.Cidr)/$($item.NextHop ? $item.NextHop : 'on-link')/$($item.Interface ? $item.Interface : '-')"
+                $rowSource = & $sourceOf $item
+                $key = & $keyOf $item.Interface $item.InterfaceKey
+                $via = $key ? $key : ($item.Interface ? $item.Interface : '-')
+                $id = "$owner/route/$($item.Cidr)/$($item.NextHop ? $item.NextHop : 'on-link')/$via"
                 $null = Add-NetworkGraphNode -State $state -Kind Route -Id $id -Name $item.Cidr -Source $item.Source -Property @{
-                    Destination = $item.Destination; PrefixLength = $item.PrefixLength; NextHop = $item.NextHop; InterfaceName = $item.Interface; Metric = $item.Metric
+                    Destination = $item.Destination; PrefixLength = $item.PrefixLength; NextHop = $item.NextHop; InterfaceName = $item.Interface; InterfaceKey = $key; Metric = $item.Metric
                 }
-                if ($item.Interface) {
-                    $interfaceId = & $ensureInterface $item.Interface $item.Source
-                    Add-NetworkGraphEdge -State $state -From $interfaceId -To $id -Kind Contains
+                if ($item.Interface -or $key) {
+                    $interfaceId = & $ensureInterface $item.Interface $key $item.Source $rowSource
+                    Add-NetworkGraphEdge -State $state -From $interfaceId -To $id -Kind Contains -Source $rowSource
                 }
                 else {
-                    Add-NetworkGraphEdge -State $state -From $owner -To $id -Kind Contains
+                    Add-NetworkGraphEdge -State $state -From $owner -To $id -Kind Contains -Source $rowSource
                     & $addFinding 'RouteWithoutInterface' $id $null "Route to $($item.Cidr) names no interface."
                 }
                 if ($item.NextHop) {
                     $remoteId = & $ensureRemote $item.NextHop $null $item.Source
-                    Add-NetworkGraphEdge -State $state -From $id -To $remoteId -Kind RoutesTo
+                    Add-NetworkGraphEdge -State $state -From $id -To $remoteId -Kind RoutesTo -Source $rowSource
                 }
             }
             elseif (& $is $item 'NetworkGraph.Connection') {
                 $owner = & $ensureHost
+                $rowSource = & $sourceOf $item
                 $endpoint = { param($Ip, $Port) ($Ip.Contains(':') ? "[$Ip]" : $Ip) + ":$Port" }
                 $local = & $endpoint $item.LocalIp $item.LocalPort
                 $remote = $item.RemoteIp ? (& $endpoint $item.RemoteIp $item.RemotePort) : '*'
@@ -197,20 +225,20 @@ function ConvertTo-NetworkGraph {
                 $null = Add-NetworkGraphNode -State $state -Kind Connection -Id $id -Name "$($item.Protocol) $local -> $remote" -Source $item.Source -Property @{
                     Protocol = $item.Protocol; LocalIp = $item.LocalIp; LocalPort = $item.LocalPort; RemoteIp = $item.RemoteIp; RemotePort = $item.RemotePort; State = $item.State; ProcessId = $item.ProcessId
                 }
-                Add-NetworkGraphEdge -State $state -From $owner -To $id -Kind Contains
+                Add-NetworkGraphEdge -State $state -From $owner -To $id -Kind Contains -Source $rowSource
                 if ($null -ne $item.ProcessId) {
                     $processId = "${owner}:$($item.ProcessId)"
                     $null = Add-NetworkGraphNode -State $state -Kind Process -Id $processId -Name ($item.ProcessName ? $item.ProcessName : "$($item.ProcessId)") -Source $item.Source -Property @{
                         ProcessId = $item.ProcessId; ProcessName = $item.ProcessName
                     }
-                    Add-NetworkGraphEdge -State $state -From $owner -To $processId -Kind Contains
-                    Add-NetworkGraphEdge -State $state -From $id -To $processId -Kind OwnedBy
+                    Add-NetworkGraphEdge -State $state -From $owner -To $processId -Kind Contains -Source $rowSource
+                    Add-NetworkGraphEdge -State $state -From $id -To $processId -Kind OwnedBy -Source $rowSource
                 }
                 if ($item.RemoteIp) {
                     $extra = @{}
                     foreach ($key in 'RemoteHost', 'Cloud', 'Service', 'Asn', 'Owner') { if ($item.PSObject.Properties[$key]) { $extra[$key] = $item.$key } }
                     $remoteId = & $ensureRemote $item.RemoteIp $extra $item.Source
-                    Add-NetworkGraphEdge -State $state -From $id -To $remoteId -Kind ConnectsTo
+                    Add-NetworkGraphEdge -State $state -From $id -To $remoteId -Kind ConnectsTo -Source $rowSource
                 }
                 if ($item.Protocol -eq 'Tcp' -and $item.State -eq 'Listen' -and $item.LocalIp -in '0.0.0.0', '::') {
                     $who = $item.ProcessName ? " ($($item.ProcessName))" : ''
@@ -219,9 +247,10 @@ function ConvertTo-NetworkGraph {
             }
             elseif (& $is $item 'NetworkGraph.Neighbor') {
                 $remoteId = & $ensureRemote $item.Ip @{ MacAddress = $item.MacAddress; Vendor = $item.Vendor } $item.Source
-                if ($item.Interface) {
-                    $interfaceId = & $ensureInterface $item.Interface $item.Source
-                    Add-NetworkGraphEdge -State $state -From $interfaceId -To $remoteId -Kind ConnectsTo
+                if ($item.Interface -or $item.InterfaceKey) {
+                    $rowSource = & $sourceOf $item
+                    $interfaceId = & $ensureInterface $item.Interface $item.InterfaceKey $item.Source $rowSource
+                    Add-NetworkGraphEdge -State $state -From $interfaceId -To $remoteId -Kind ConnectsTo -Source $rowSource
                 }
             }
             elseif (& $is $item 'NetworkGraph.Hop') { $hops.Add($item) }
@@ -239,24 +268,25 @@ function ConvertTo-NetworkGraph {
             }
             elseif (& $is $item 'NetworkGraph.ExternalIp') {
                 $remoteId = & $ensureRemote $item.Ip @{ Asn = $item.Asn; Owner = $item.Owner } $item.Source
-                Add-NetworkGraphEdge -State $state -From (& $ensureHost) -To $remoteId -Kind RoutesTo
+                Add-NetworkGraphEdge -State $state -From (& $ensureHost) -To $remoteId -Kind RoutesTo -Source (& $sourceOf $item)
             }
             elseif (& $is $item 'NetworkGraph.DnsRecord') {
+                $rowSource = & $sourceOf $item
                 switch ($item.Type) {
                     { $_ -in 'A', 'AAAA' } {
                         $nameId = & $ensureDnsName $item.Name $item.Source
                         $remoteId = & $ensureRemote $item.Data @{ RemoteHost = $item.Name } $item.Source
-                        Add-NetworkGraphEdge -State $state -From $nameId -To $remoteId -Kind ResolvesTo
+                        Add-NetworkGraphEdge -State $state -From $nameId -To $remoteId -Kind ResolvesTo -Source $rowSource
                     }
                     'CNAME' {
                         $nameId = & $ensureDnsName $item.Name $item.Source
                         $targetId = & $ensureDnsName $item.Data $item.Source
-                        Add-NetworkGraphEdge -State $state -From $nameId -To $targetId -Kind ResolvesTo
+                        Add-NetworkGraphEdge -State $state -From $nameId -To $targetId -Kind ResolvesTo -Source $rowSource
                     }
                     'PTR' {
                         $nameId = & $ensureDnsName $item.Data $item.Source
                         $remoteId = & $ensureRemote $item.Query @{ RemoteHost = $item.Data } $item.Source
-                        Add-NetworkGraphEdge -State $state -From $remoteId -To $nameId -Kind ResolvesTo
+                        Add-NetworkGraphEdge -State $state -From $remoteId -To $nameId -Kind ResolvesTo -Source $rowSource
                     }
                     default { Write-Verbose "ConvertTo-NetworkGraph: $($item.Type) record for $($item.Name) has no node kind; skipped." }
                 }
@@ -285,7 +315,7 @@ function ConvertTo-NetworkGraph {
                     Target = $hop.Target; Hop = $hop.Hop; Ip = $hop.Ip; RttMs = @($hop.RttMs); AvgMs = $hop.PSObject.Properties['AvgMs'] ? $hop.AvgMs : $null
                     LossPercent = $hop.LossPercent; Responded = $responded
                 }
-                Add-NetworkGraphEdge -State $state -From $previous -To $id -Kind HopsTo
+                Add-NetworkGraphEdge -State $state -From $previous -To $id -Kind HopsTo -Source (& $sourceOf $hop)
                 $previous = $id
             }
         }
@@ -295,16 +325,19 @@ function ConvertTo-NetworkGraph {
         foreach ($node in @($state.Nodes | Where-Object { $_.Kind -eq 'RemoteHost' -and $_.Ip })) {
             $info = Test-IPAddress -Address $node.Ip
             $scopes[$node.Ip] = $info
+            $classified = "Test-IPAddress $($node.Ip)"
+            $cloudSource = ($null -ne $node.Cloud -and $node.Source) ? $node.Source : $classified
+            $asnSource = ($null -ne $node.Asn -and $node.Source) ? $node.Source : $classified
             foreach ($key in 'Cloud', 'Service', 'Asn', 'Owner') { if ($null -eq $node.$key -and $null -ne $info.$key) { $node.$key = $info.$key } }
             if ($node.Cloud) {
                 $cloudId = "cloud/$($node.Cloud)"
                 $null = Add-NetworkGraphNode -State $state -Kind Cloud -Id $cloudId -Name $node.Cloud -Source (Get-NetworkGraphDataCitation -Kind CloudRanges -Cloud $node.Cloud) -Property @{ Cloud = $node.Cloud }
-                Add-NetworkGraphEdge -State $state -From $node.Id -To $cloudId -Kind BelongsTo
+                Add-NetworkGraphEdge -State $state -From $node.Id -To $cloudId -Kind BelongsTo -Source $cloudSource
             }
             if ($node.Asn) {
                 $asnId = "AS$($node.Asn)"
                 $null = Add-NetworkGraphNode -State $state -Kind Asn -Id $asnId -Name ($node.Owner ? "$asnId $($node.Owner)" : $asnId) -Source $node.Source -Property @{ Asn = $node.Asn; Owner = $node.Owner }
-                Add-NetworkGraphEdge -State $state -From $node.Id -To $asnId -Kind BelongsTo
+                Add-NetworkGraphEdge -State $state -From $node.Id -To $asnId -Kind BelongsTo -Source $asnSource
             }
         }
         foreach ($node in @($state.Nodes | Where-Object { $_.Kind -eq 'Connection' -and $_.RemoteIp })) {

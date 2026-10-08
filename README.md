@@ -31,7 +31,7 @@ There was no PowerShell module that did cloud-aware subnet math and also read th
 
 IPv4 is the v1 target. IPv6 runs through the same code and is tested, but the cloud rules, the examples and the manual checks are IPv4.
 
-Source version **0.1.1**. Not yet published to the PowerShell Gallery: install from a clone (see [Install](#install)).
+Source version **0.2.0**. Not yet published to the PowerShell Gallery: install from a clone (see [Install](#install)).
 
 ---
 
@@ -176,6 +176,8 @@ Get-ExternalIpAddress -Rdap                             # three endpoints must a
 | `Get-NetworkHost` | the commands above, Get-NetFirewallProfile, Windows Security Center | the commands above, ufw.conf, ufw, firewall-cmd | the floors above |
 | `Invoke-NetworkScan` | nmap | nmap | `TcpClient` |
 
+Interface, route and neighbour rows carry `InterfaceKey`, the identifier the graph keys an interface on because the alias can be renamed: the interface GUID on Windows, the ifindex on Linux (stable for one boot only). Get-NetRoute, Get-NetNeighbor, arp, `ip route` and `ip neigh` name an interface by index or device name only, so `Get-NetworkRoute` and `Get-NetworkNeighbor` look the key up at the same moment and add that lookup to `Source`: `[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()` on Windows, `Get-Content /sys/class/net/*/ifindex` on Linux.
+
 Structured output is parsed where the tool offers it (`ip -j`, `mtr --json`, `nmap -oX`, PowerShell objects). Text output (ping, tracert, pathping, traceroute, ss, arp, dig, nslookup, nc, ufw) is read with regular expressions pinned by fixture tests captured from real runs on each platform; English output only. On Linux and macOS native tools run with `LC_ALL=C`; output a parser does not recognise is an error that names `-Tool DotNet`, never an empty or "down" answer. A native tool that exits with a code its command does not expect, or times out, is an error carrying its stderr and command line.
 
 `Invoke-NetworkScan` runs nmap with `-oX - -n -Pn -p` if it is on PATH and otherwise falls back to TCP connect tests (at most 4096 addresses). NetworkGraph bundles no nmap, no scripts folder, and adds no version, OS-detection, timing or evasion flags. Scan only networks you own or are authorised to test.
@@ -197,7 +199,25 @@ $graph.Findings | Format-Table Finding, NodeId, Detail
 @(Get-Subnet 10.0.0.0/24 -Cloud Azure; Get-Subnet 10.0.0.128/25 -Cloud Azure) | ConvertTo-NetworkGraph
 ```
 
-Nodes (Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn), edges (Contains, RoutesTo, HopsTo, ConnectsTo, OwnedBy, ResolvesTo, BelongsTo) and findings (SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface). On this machine on 2026-10-07 the first example gave 345 Connection, 75 Process, 53 Route, 31 RemoteHost, 10 Interface, 7 Hop, 3 Cloud, 3 Asn, 2 Subnet and 1 Host nodes, with 26 NonCloudPublicConnection and 26 WildcardListener findings. The property names match TerraformGraph's `ConvertTo-TerraformResourceGraph`; [docs/graph-shape.md](docs/graph-shape.md) is the contract, and lists the two differences that remain. [ONTOLOGY.md](ONTOLOGY.md#terminology) defines each node and edge Kind.
+Every edge carries the `Source` of the row that asserted it, and Interface and Route Ids use the interface key, so renaming an adapter does not fork its node. On this machine on 2026-10-08 (GUID replaced as in the test fixtures):
+
+```powershell
+PS> $graph = @(Get-NetworkInterface; Get-NetworkRoute -AddressFamily IPv4) | ConvertTo-NetworkGraph -HostName testhost
+PS> $graph.Edges | Where-Object Kind -eq RoutesTo | Format-Table From, To, Source
+
+From                                                                        To          Source
+----                                                                        --          ------
+testhost/route/0.0.0.0/0/192.168.0.1/{00000000-0000-0000-0000-000000000016} 192.168.0.1 Get-NetRoute; [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()
+
+PS> $graph.Nodes | Where-Object Name -eq 'Wi-Fi' | Format-List Id, Name, InterfaceKey, Source
+
+Id           : testhost/if/{00000000-0000-0000-0000-000000000016}
+Name         : Wi-Fi
+InterfaceKey : {00000000-0000-0000-0000-000000000016}
+Source       : Get-NetIPConfiguration -All
+```
+
+Nodes (Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn), edges (Contains, RoutesTo, HopsTo, ConnectsTo, OwnedBy, ResolvesTo, BelongsTo) and findings (SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface). On this machine on 2026-10-07 the first example gave 345 Connection, 75 Process, 53 Route, 31 RemoteHost, 10 Interface, 7 Hop, 3 Cloud, 3 Asn, 2 Subnet and 1 Host nodes, with 26 NonCloudPublicConnection and 26 WildcardListener findings. The property names match TerraformGraph's `ConvertTo-TerraformResourceGraph`; [docs/graph-shape.md](docs/graph-shape.md) is the contract, and lists the three differences that remain (edges here carry `Source`). [ONTOLOGY.md](ONTOLOGY.md#terminology) defines each node and edge Kind.
 
 ### Shared view with TerraformGraph (Planned)
 

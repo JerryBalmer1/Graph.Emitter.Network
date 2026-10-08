@@ -1,13 +1,13 @@
 # NetworkGraph manual check list
 
-Module version: 0.1.1
-Last updated: 2026-10-07
+Module version: 0.2.0
+Last updated: 2026-10-08
 
 Every block runs in the shell it is pasted into: it moves to the repository, removes any loaded NetworkGraph and imports the module from `src` with `-Force`, so no item depends on another or picks up an installed NetworkGraph. No block wraps itself in `pwsh -Command { ... }`, which prints nothing when pasted into a console. Objects keep their default views, and the Expect lines describe what those look like. Items are append-only: never renumber, mark a removed item "(removed in x.y.z)".
 
 Layout: section 0 is setup, section 1 the first checks (the README's examples and cross-cutting behaviour), sections 2 to 24 one exported function each in FunctionsToExport order, one item per parameter set or distinct behaviour. From section 25 on, a section covers a family of functions or one release's cross-cutting contracts. Items 1.4, 1.5, 1.6, 1.14, 11.x, 18.1, 18.2 and 24.1 need network access; the rest do not.
 
-Verified for 0.1.1, blocks run in the pasted shell (every item): each block was saved to a temp `.ps1` and run with `pwsh -NoProfile -File` on Windows 11 (PowerShell 7.6.6) on 2026-10-07, with network access and no nmap or dig on PATH; Expect lines 1.1, 1.5, 1.6 and 1.8 were rewritten from that output, the rest matched. Verified for 0.1.1 (sections 2 to 24): every item was run on Windows 11 (PowerShell 7.6.6) on 2026-10-07, with no nmap or dig on PATH, and its Expect line written from that output. Verified for 0.1.1: items 0.1, 1.4, 1.5, 1.6 and 1.8 were rerun, and 1.10 to 1.14 added and run, on Windows 11 (PowerShell 7.6.6); their Expect lines are written from that output. Verified for 0.1.0: every item below was run on Windows 11 (PowerShell 7.6.6) and its Expect line written from that output. Items 1.1, 1.2, 1.3 and 1.7 were also run on Linux (Ubuntu 22.04 container, PowerShell 7, with the repository path changed to the container's) with the same output; 1.4, 1.5 and 1.6 depend on the host's own connections and path and were exercised on Linux through the Live Pester tests, not by these blocks.
+Verified for 0.2.0: items 0.1, 14.1 to 14.3, 15.1, 16.1, 16.2, 22.1 and 22.2 were rerun, and 25.1 and 25.2 added and run, each block saved to a temp `.ps1` and run with `pwsh -NoProfile -File` on Windows 11 (PowerShell 7.6.6) on 2026-10-08; their Expect lines are written from that output. Verified for 0.1.1, blocks run in the pasted shell (every item): each block was saved to a temp `.ps1` and run with `pwsh -NoProfile -File` on Windows 11 (PowerShell 7.6.6) on 2026-10-07, with network access and no nmap or dig on PATH; Expect lines 1.1, 1.5, 1.6 and 1.8 were rewritten from that output, the rest matched. Verified for 0.1.1 (sections 2 to 24): every item was run on Windows 11 (PowerShell 7.6.6) on 2026-10-07, with no nmap or dig on PATH, and its Expect line written from that output. Verified for 0.1.1: items 0.1, 1.4, 1.5, 1.6 and 1.8 were rerun, and 1.10 to 1.14 added and run, on Windows 11 (PowerShell 7.6.6); their Expect lines are written from that output. Verified for 0.1.0: every item below was run on Windows 11 (PowerShell 7.6.6) and its Expect line written from that output. Items 1.1, 1.2, 1.3 and 1.7 were also run on Linux (Ubuntu 22.04 container, PowerShell 7, with the repository path changed to the container's) with the same output; 1.4, 1.5 and 1.6 depend on the host's own connections and path and were exercised on Linux through the Live Pester tests, not by these blocks.
 
 ## 0 Setup
 
@@ -24,9 +24,9 @@ Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
 (Get-Command -Module NetworkGraph).Name -join ', '
 ```
 
-Expect: `0.1.1`, then `23`, then ConvertFrom-SubnetMask, ConvertTo-NetworkGraph, ConvertTo-SubnetMask, Get-ExternalIpAddress, Get-MacAddressVendor, Get-NetworkConnection, Get-NetworkGraphData, Get-NetworkHost, Get-NetworkInterface, Get-NetworkNeighbor, Get-NetworkRoute, Get-Subnet, Get-SubnetChildren, Get-SubnetParent, Invoke-NetworkScan, New-SubnetPlan, Resolve-NetworkName, Test-IPAddress, Test-NetworkPath, Test-NetworkPort, Test-SubnetOverlap, Trace-NetworkPath, Update-NetworkGraphData.
+Expect: `0.2.0`, then `23`, then ConvertFrom-SubnetMask, ConvertTo-NetworkGraph, ConvertTo-SubnetMask, Get-ExternalIpAddress, Get-MacAddressVendor, Get-NetworkConnection, Get-NetworkGraphData, Get-NetworkHost, Get-NetworkInterface, Get-NetworkNeighbor, Get-NetworkRoute, Get-Subnet, Get-SubnetChildren, Get-SubnetParent, Invoke-NetworkScan, New-SubnetPlan, Resolve-NetworkName, Test-IPAddress, Test-NetworkPath, Test-NetworkPort, Test-SubnetOverlap, Trace-NetworkPath, Update-NetworkGraphData.
 
-Pester: "is version 0.1.1 and needs PowerShell 7.4", "psd1 exports match Public/", "exports 23 functions in three groups by noun", "every Public file exports exactly its function name"
+Pester: "is version 0.2.0 and needs PowerShell 7.4", "psd1 exports match Public/", "exports 23 functions in three groups by noun", "every Public file exports exactly its function name"
 
 ## 1 First checks
 
@@ -710,20 +710,20 @@ Pester: "summarises this host on the .NET floor" (Live)
 
 ### 14.1 Get-NetworkInterface: default (Auto)
 
-Adapters from Get-NetIPConfiguration, with addresses and gateways.
+Adapters from Get-NetIPConfiguration, with their InterfaceKey (the interface GUID), addresses and gateways.
 
 ```powershell
 Set-Location 'C:\__Code\NetworkGraph'
 Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
 Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
 $rows = @(Get-NetworkInterface)
-$rows | Where-Object Status -eq 'Up' | Select-Object -First 3 | Format-Table Name, Status, Ip, PrefixLength, Gateway
+$rows | Where-Object Status -eq 'Up' | Select-Object -First 3 | Format-Table Name, InterfaceKey, Status, Ip, PrefixLength, Gateway
 'Rows {0}, Source {1}' -f $rows.Count, (($rows.Source | Select-Object -Unique) -join ' + ')
 ```
 
-Expect: Up to three Up adapters (for example `Wi-Fi Up {192.168.0.6} {24} {192.168.0.1}`), then a line like `Rows 9, Source Get-NetIPConfiguration -All`.
+Expect: Up to three Up adapters, each with a different InterfaceKey that is a GUID in braces (for example `Wi-Fi {xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx} Up {192.168.0.6} {24} {192.168.0.1}`), then a line like `Rows 9, Source Get-NetIPConfiguration -All`.
 
-Pester: "maps Get-NetIPConfiguration (flattened) objects", "names the cmdlet in Source and looks up the vendor", "lists adapters with the native tool" (Live)
+Pester: "maps Get-NetIPConfiguration (flattened) objects", "keys each Get-NetIPConfiguration interface on its InterfaceGuid, not its alias", "names the cmdlet in Source, looks up the vendor and carries InterfaceKey", "lists adapters with the native tool" (Live)
 
 ### 14.2 Get-NetworkInterface: -Name with a wildcard
 
@@ -738,7 +738,7 @@ $match = @(Get-NetworkInterface -Name "$($first.Substring(0, 3))*")
 'Pattern {0}*: {1} row(s), all match: {2}' -f $first.Substring(0, 3), $match.Count, (@($match | Where-Object { $_.Name -notlike "$($first.Substring(0, 3))*" }).Count -eq 0)
 ```
 
-Expect: A line like `Pattern Wi-*: 1 row(s), all match: True`; the last word is always `True`.
+Expect: A line like `Pattern Vir*: 1 row(s), all match: True` (the first Up adapter's first three letters); the last word is always `True`.
 
 Pester: none
 
@@ -755,9 +755,9 @@ $rows | Where-Object Status -eq 'Up' | Select-Object -First 3 | Format-Table Nam
 'Rows {0}, Source {1}' -f $rows.Count, (($rows.Source | Select-Object -Unique) -join ' + ')
 ```
 
-Expect: Up to three Up adapters, among them `Loopback Pseudo-Interface 1 Up {::1, 127.0.0.1} {128, 8}`; then a line like `Rows 76, Source [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()` (more rows than 14.1).
+Expect: Up to three Up adapters, among them `Loopback Pseudo-Interface 1 Up {::1, 127.0.0.1} {128, 8}`; then a line like `Rows 76, Source [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()` (more rows than 14.1). On Linux the Source adds `; Get-Content /sys/class/net/*/ifindex`, where InterfaceKey comes from.
 
-Pester: "lists adapters on the .NET floor" (Live)
+Pester: "lists adapters on the .NET floor"
 
 ## 15 Get-NetworkNeighbor
 
@@ -774,9 +774,9 @@ $rows | Select-Object -First 3 | Format-Table Ip, MacAddress, Vendor, State, Int
 'Rows {0}, Source {1}' -f $rows.Count, (($rows.Source | Select-Object -Unique) -join ' + ')
 ```
 
-Expect: Up to three rows with an Ip, a MacAddress, a State such as `Permanent` or `Reachable` and an Interface; then a line like `Rows 44, Source Get-NetNeighbor`.
+Expect: Up to three rows with an Ip, a MacAddress, a State such as `Permanent` or `Reachable` and an Interface; then a line like `Rows 50, Source Get-NetNeighbor; [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()` (the second command is the lookup that gives each row its InterfaceKey).
 
-Pester: "maps Get-NetNeighbor objects; an all-zero MAC is no MAC", "returns rows with Vendor, State, Interface and the command line", "lists the live neighbour table" (Live)
+Pester: "maps Get-NetNeighbor objects; an all-zero MAC is no MAC", "looks up each Get-NetNeighbor InterfaceIndex for InterfaceKey", "returns rows with Vendor, State, Interface, InterfaceKey and the command lines", "lists the live neighbour table" (Live)
 
 ### 15.2 Get-NetworkNeighbor: -IncludeUnresolved
 
@@ -823,9 +823,9 @@ $rows | Where-Object PrefixLength -eq 0 | Format-Table Destination, PrefixLength
 'Rows {0}, all IPv4 {1}, Source {2}' -f $rows.Count, (@($rows | Where-Object { $_.Destination -match ':' }).Count -eq 0), (($rows.Source | Select-Object -Unique) -join ' + ')
 ```
 
-Expect: One row `0.0.0.0 0 <your gateway> <your adapter> <metric>` (for example `0.0.0.0 0 192.168.0.1 Wi-Fi 0`); then a line like `Rows 30, all IPv4 True, Source Get-NetRoute`.
+Expect: One row `0.0.0.0 0 <your gateway> <your adapter> <metric>` (for example `0.0.0.0 0 192.168.0.1 Wi-Fi 0`); then a line like `Rows 30, all IPv4 True, Source Get-NetRoute; [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()` (the second command is the lookup that gives each row its InterfaceKey).
 
-Pester: "asks only for IPv4 with -AddressFamily IPv4", "maps Get-NetRoute objects", "reads the live route table" (Live)
+Pester: "asks only for IPv4 with -AddressFamily IPv4", "maps Get-NetRoute objects", "looks up each Get-NetRoute InterfaceIndex for InterfaceKey", "reads the live route table" (Live)
 
 ### 16.2 Get-NetworkRoute: -Tool DotNet
 
@@ -840,7 +840,7 @@ $rows | Select-Object -First 3 | Format-Table Destination, PrefixLength, NextHop
 ($rows.Source | Select-Object -Unique) -join "`n"
 ```
 
-Expect: On-link rows for each Up adapter's prefix (for example `192.168.0.0 24` with an empty NextHop) and a `0.0.0.0 0 <gateway>` row; then `[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | ForEach-Object { $_.GetIPProperties() }  # .NET floor: routes derived from addresses and gateways, no route table`.
+Expect: On-link rows for each Up adapter's prefix (for example `192.168.0.0 24` with an empty NextHop) and a `0.0.0.0 0 <gateway>` row; then `[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | ForEach-Object { $_.GetIPProperties() }  # .NET floor: routes derived from addresses and gateways, no route table` (unchanged on Windows, where the same call gives InterfaceKey; on Linux `; Get-Content /sys/class/net/*/ifindex` follows).
 
 Pester: "derives on-link routes from interface addresses on the .NET floor"
 
@@ -1062,9 +1062,9 @@ $graph.Nodes | Group-Object Kind -NoElement | Sort-Object Name | Format-Table Na
 $graph.Edges | Group-Object Kind -NoElement | Sort-Object Name | Format-Table Name, Count
 ```
 
-Expect: Root is this computer's name in lower case, with NodeCount, EdgeCount and FindingCount (for example 67, 66, 0); node kinds Host (1), Interface, RemoteHost (the gateway), Route, Subnet; edge kinds Contains and RoutesTo.
+Expect: Root is this computer's name in lower case, with NodeCount, EdgeCount and FindingCount (for example 67, 66, 0); node kinds Host (1), Interface (for example 10: the adapters, plus the loopback pseudo-interface the routes name), RemoteHost (the gateway, 1), Route, Subnet; edge kinds Contains and RoutesTo. Each route merges into the Interface node of its adapter by InterfaceKey, so there are no extra Interface nodes.
 
-Pester: "roots the graph at the host from Get-NetworkHost", "links host, interface, subnet and route with Contains and RoutesTo", "uses the documented Id per kind"
+Pester: "roots the graph at the host from Get-NetworkHost", "links host, interface, subnet and route with Contains and RoutesTo", "uses the documented Id per kind", "Route Ids end in the InterfaceKey of the interface that contains them"
 
 ### 22.2 ConvertTo-NetworkGraph: subnets alone
 
@@ -1167,3 +1167,42 @@ Update-NetworkGraphData -Kind CloudRanges -WhatIf
 Expect: `What if: Performing the operation "Harvest CloudRanges" on target "<LOCALAPPDATA>\NetworkGraph\data\cloud-ranges.json.gz".`
 
 Pester: "writes the user cache by default, which then wins over the bundled copy"
+
+## 25 Graph contract (0.2.0)
+
+### 25.1 ConvertTo-NetworkGraph: an edge with Source
+
+Every edge carries the Source of the row that asserted it; the default route's RoutesTo edge has the route row's Source.
+
+```powershell
+Set-Location 'C:\__Code\NetworkGraph'
+Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+$graph = @(Get-NetworkInterface; Get-NetworkRoute -AddressFamily IPv4) | ConvertTo-NetworkGraph -HostName testhost
+$graph.Edges | Where-Object Kind -eq RoutesTo | Format-List From, To, Kind, Source
+'Edges {0}, without Source {1}' -f $graph.EdgeCount, @($graph.Edges | Where-Object { -not $_.Source }).Count
+```
+
+Expect: One edge with From `testhost/route/0.0.0.0/0/<gateway>/{<GUID>}` (for example `testhost/route/0.0.0.0/0/192.168.0.1/{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}`), To the gateway, Kind `RoutesTo`, Source `Get-NetRoute; [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()`; then a line like `Edges 43, without Source 0` (the second number is always 0).
+
+Pester: "every edge has a non-empty Source", "an edge takes the Source of the row that asserted it: <Name>", "property order: an Interface node is Id, Kind, Name, InterfaceName, InterfaceKey, ..., Source; an edge is From, To, Kind, Source"
+
+### 25.2 ConvertTo-NetworkGraph: an Interface Id with its InterfaceKey
+
+The Interface Id is built on InterfaceKey (the interface GUID on Windows, the ifindex on Linux), not the renameable alias, and the default route's Id ends in the same key.
+
+```powershell
+Set-Location 'C:\__Code\NetworkGraph'
+Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+$graph = @(Get-NetworkInterface; Get-NetworkRoute -AddressFamily IPv4) | ConvertTo-NetworkGraph -HostName testhost
+$default = $graph.Nodes | Where-Object { $_.Kind -eq 'Route' -and $_.PrefixLength -eq 0 } | Select-Object -First 1
+$interface = $graph.Nodes | Where-Object { $_.Kind -eq 'Interface' -and $_.InterfaceKey -eq $default.InterfaceKey }
+$interface | Format-List Id, Name, InterfaceName, InterfaceKey
+'Route {0}' -f $default.Id
+'Id is host/if/key: {0}; route ends in the same key: {1}' -f ($interface.Id -eq "testhost/if/$($interface.InterfaceKey)"), $default.Id.EndsWith("/$($interface.InterfaceKey)")
+```
+
+Expect: Id `testhost/if/{<GUID>}`, Name and InterfaceName your adapter's alias (for example `Wi-Fi`), InterfaceKey the same `{<GUID>}`; then `Route testhost/route/0.0.0.0/0/<gateway>/{<GUID>}` and `Id is host/if/key: True; route ends in the same key: True`.
+
+Pester: "Windows Interface Ids use the GUID, not the alias", "an interface whose alias was renamed keeps its Id (same key, different alias)", "Route Ids end in the InterfaceKey of the interface that contains them", "keys the Interface node on InterfaceKey and keeps the alias as Name and InterfaceName"

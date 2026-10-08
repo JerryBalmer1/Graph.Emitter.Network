@@ -1,10 +1,12 @@
 function New-NetworkGraphInterfaceRow {
-    # Not exported. One parsed interface { Name, Description, Status, MacAddress, Ip, PrefixLength,
-    # Gateway, Dns }, the shape every interface parser returns. -Address takes 'addr/len' strings;
-    # Ip and PrefixLength are parallel arrays. Status is Up, Down or the tool's word.
+    # Not exported. One parsed interface { Name, InterfaceKey, Description, Status, MacAddress, Ip,
+    # PrefixLength, Gateway, Dns }, the shape every interface parser returns. InterfaceKey is the
+    # interface GUID on Windows and the ifindex on Linux (docs/graph-shape.md). -Address takes
+    # 'addr/len' strings; Ip and PrefixLength are parallel arrays. Status is Up, Down or the tool's word.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Builds an object in memory; changes no state.')]
     param(
         [string]$Name,
+        [string]$InterfaceKey,
         [string]$Description,
         [string]$Status,
         [string]$MacAddress,
@@ -23,6 +25,7 @@ function New-NetworkGraphInterfaceRow {
     $state = switch -Regex ($Status) { '^(up|connected)$' { 'Up' } '^(down|disconnected|not ?present)$' { 'Down' } default { $Status } }
     [pscustomobject]@{
         Name         = $Name
+        InterfaceKey = $InterfaceKey ? $InterfaceKey : $null
         Description  = $Description ? $Description : $null
         Status       = $state ? $state : $null
         MacAddress   = ConvertTo-NetworkGraphMac -MacAddress $MacAddress

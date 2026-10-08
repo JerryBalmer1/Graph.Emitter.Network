@@ -43,12 +43,25 @@ Describe 'Graph contract (docs/graph-shape.md)' {
     }
 
     It 'edge property names equal the contract in docs/graph-shape.md' {
-        $EdgeContract['Edge'] | Should -Be @('From', 'To', 'Kind')
+        $EdgeContract['Edge'] | Should -Be @('From', 'To', 'Kind', 'Source')
         foreach ($edge in $Graph.Edges) { @($edge.PSObject.Properties.Name) | Should -Be $EdgeContract['Edge'] }
     }
 
-    It 'matches ConvertTo-TerraformResourceGraph: Id and Kind first, edges From, To, Kind, graph Root, Nodes, Edges' {
+    It 'property order: an Interface node is Id, Kind, Name, InterfaceName, InterfaceKey, ..., Source; an edge is From, To, Kind, Source' {
+        $interface = $Graph.Nodes | Where-Object Kind -eq 'Interface' | Select-Object -First 1
+        @($interface.PSObject.Properties.Name) | Should -Be @('Id', 'Kind', 'Name', 'InterfaceName', 'InterfaceKey', 'Ip', 'PrefixLength', 'MacAddress', 'Vendor', 'Status', 'Source')
+        $route = $Graph.Nodes | Where-Object Kind -eq 'Route' | Select-Object -First 1
+        @($route.PSObject.Properties.Name) | Should -Be @('Id', 'Kind', 'Name', 'Destination', 'PrefixLength', 'NextHop', 'InterfaceName', 'InterfaceKey', 'Metric', 'Source')
+        foreach ($edge in $Graph.Edges) { @($edge.PSObject.Properties.Name) | Should -Be @('From', 'To', 'Kind', 'Source') }
+    }
+
+    It 'every edge has a non-empty Source' {
+        foreach ($edge in $Graph.Edges) { [string]$edge.Source | Should -Not -BeNullOrEmpty -Because "$($edge.From) $($edge.Kind) $($edge.To)" }
+    }
+
+    It 'matches ConvertTo-TerraformResourceGraph: Id and Kind first, edges From, To, Kind (then Source), graph Root, Nodes, Edges' {
         foreach ($node in $Graph.Nodes) { @($node.PSObject.Properties.Name)[0..1] | Should -Be @('Id', 'Kind') }
+        foreach ($edge in $Graph.Edges) { @($edge.PSObject.Properties.Name)[0..2] | Should -Be @('From', 'To', 'Kind') }
         @($Graph.PSObject.Properties.Name | Where-Object { $_ -in 'Root', 'Nodes', 'Edges', 'NodeCount', 'EdgeCount' }).Count | Should -Be 5
     }
 
@@ -83,7 +96,7 @@ Describe 'Graph contract (docs/graph-shape.md)' {
         foreach ($kind in $module) { $kind | Should -MatchExactly '^[A-Z][a-z]+([A-Z][a-z]+)*$' }
         InModuleScope NetworkGraph {
             $state = [pscustomobject]@{ EdgeKeys = [System.Collections.Generic.HashSet[string]]::new(); Edges = [System.Collections.Generic.List[object]]::new() }
-            { Add-NetworkGraphEdge -State $state -From a -To b -Kind contains } | Should -Throw '*Unknown edge kind*'
+            { Add-NetworkGraphEdge -State $state -From a -To b -Kind contains -Source fixture } | Should -Throw '*Unknown edge kind*'
         }
     }
 }
@@ -169,6 +182,8 @@ Describe 'Every Source is pasteable' {
 
         # Windows cmdlets, replaced by their fixtures (they exist only on Windows).
         if ($IsWindows) {
+            $windowsKeys = Get-TestKeyMap -Platform Windows
+            Mock Get-NetworkGraphInterfaceKeyMap -ModuleName NetworkGraph { $windowsKeys }.GetNewClosure()
             Mock Get-NetTCPConnection -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetTCPConnection.windows.json' }
             Mock Get-NetUDPEndpoint -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetUDPEndpoint.windows.json' }
             Mock Get-NetRoute -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetRoute.windows.json' }
@@ -231,6 +246,7 @@ Describe 'Every Source is pasteable' {
         $graphInput = @($hostRow) + $nativeRows + $verdicts + @(New-SubnetPlan 10.0.0.0/22 -Hosts 250, 120 -Cloud Azure) + @(Get-Subnet 10.1.0.0/24)
         $graph = $graphInput | ConvertTo-NetworkGraph -WarningAction SilentlyContinue
         foreach ($node in $graph.Nodes) { Add-Source "node $($node.Kind)" $node }
+        foreach ($edge in $graph.Edges) { Add-Source "edge $($edge.Kind)" $edge }
     }
 
     It 'each Source is a resolvable verb-noun command, a wrapped tool command line, a full-type-name .NET expression, or a data citation; every command parses' {
@@ -243,7 +259,7 @@ Describe 'Every Source is pasteable' {
             $seen[$source] = 1
             Write-Verbose ('{0,-42} {1}' -f $entry.From, $source)
             if ($source -match $citation) { continue }
-            $first = ($source -split '\s+')[0]
+            $first = ($source -split '[\s;]+')[0]
             $isCommand = $first -match '^[A-Za-z]+-[A-Za-z]+$' -and [bool](Get-Command -Name $first -ErrorAction SilentlyContinue)
             $isTool = $first -in $Tools
             $isType = $source -match '^\[System\.[\w.]+\]::'

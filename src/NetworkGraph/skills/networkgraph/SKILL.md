@@ -27,7 +27,7 @@ Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force   # from a clone
 All take `-Tool Auto|Native|DotNet` (Auto: native when installed, else the .NET floor). Every row has `Source`: the tool and exact command line. Nothing is bundled; nmap is used only if installed.
 
 - `Test-NetworkPath` (ping), `Trace-NetworkPath` (tracert/pathping, mtr/traceroute; `-NativeTool`), `Test-NetworkPort` (`-Port`, `-Protocol Tcp|Udp`, `-Timeout`), `Invoke-NetworkScan` (nmap -oX, else TCP connect; `-ThrottleLimit`; accepts CIDR targets).
-- `Get-NetworkConnection` (`-Protocol`, `-State`, `-Resolve` adds RemoteHost, Cloud, Service, Asn, Owner), `Get-NetworkNeighbor`, `Get-NetworkRoute`, `Get-NetworkInterface`, `Get-NetworkHost` (one object: interfaces, routes, gateway, DNS, firewall).
+- `Get-NetworkConnection` (`-Protocol`, `-State`, `-Resolve` adds RemoteHost, Cloud, Service, Asn, Owner), `Get-NetworkNeighbor`, `Get-NetworkRoute`, `Get-NetworkInterface`, `Get-NetworkHost` (one object: interfaces, routes, gateway, DNS, firewall). Interface, route and neighbour rows carry `InterfaceKey`: the interface GUID on Windows, the ifindex on Linux (one boot only).
 - `Resolve-NetworkName` (`-Type A|AAAA|PTR|MX|TXT|NS|CNAME|SRV`, `-Server`; the .NET floor answers A, AAAA, PTR only).
 - `Get-ExternalIpAddress` (`-Rdap` adds Network, Owner, Country, Cidr, Asn when the registry has it). No BGP: a host cannot see routing beyond its own table and traces.
 
@@ -37,7 +37,7 @@ Before sharing captured output (a bug report, a test fixture, a pasted Source li
 
 ## Graph and data
 
-- `ConvertTo-NetworkGraph` — any mix of the above → `NetworkGraph.Graph` (Root, Nodes, Edges, Findings, NodeCount, EdgeCount, FindingCount). Node kinds Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn; edges Contains, RoutesTo, HopsTo, ConnectsTo, OwnedBy, ResolvesTo, BelongsTo (properties From, To, Kind, as TerraformGraph); findings SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface. Offline.
+- `ConvertTo-NetworkGraph` — any mix of the above → `NetworkGraph.Graph` (Root, Nodes, Edges, Findings, NodeCount, EdgeCount, FindingCount). Node kinds Host, Interface, Subnet, Route, Hop, Connection, Process, RemoteHost, Cloud, Asn; edges Contains, RoutesTo, HopsTo, ConnectsTo, OwnedBy, ResolvesTo, BelongsTo (properties From, To, Kind as TerraformGraph, then Source: the row that asserted the edge); Interface Id `<host>/if/<InterfaceKey>` and Route Ids end in the same key, so renaming an adapter keeps its node; findings SubnetOverlap, BelowCloudMinimum, NonCloudPublicConnection, WildcardListener, RouteWithoutInterface. Offline.
 - `Get-NetworkGraphData` — data files with sources and pulled dates (`-Kind`, `-Sources`).
 - `Update-NetworkGraphData` — refresh SpecialUse, CloudRanges, Oui, Ports into the user cache (network). Cloud ranges change weekly.
 

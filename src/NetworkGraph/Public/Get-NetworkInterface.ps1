@@ -9,6 +9,11 @@ function Get-NetworkInterface {
         /etc/resolv.conf (DNS servers, the same for every interface) on Linux. The .NET floor,
         System.Net.NetworkInformation.NetworkInterface, gives the same fields on every platform.
         Ip and PrefixLength are parallel arrays. Vendor is $null for a locally-administered MAC.
+        InterfaceKey is what ConvertTo-NetworkGraph keys the Interface node on, because the alias
+        (Name) can be renamed: the interface GUID on Windows (NetAdapter.InterfaceGuid), the
+        ifindex on Linux (ip -j addr; stable for the boot only). The .NET floor reads it from the
+        same NetworkInterface objects on Windows and from /sys/class/net/<dev>/ifindex on Linux,
+        and says so in Source.
 
     .PARAMETER Name
         Adapter names to keep; wildcards allowed.
@@ -20,8 +25,8 @@ function Get-NetworkInterface {
         Get-NetworkInterface | Where-Object Status -eq Up
 
     .OUTPUTS
-        NetworkGraph.Interface: Name, Description, Status, Ip, PrefixLength, MacAddress, Vendor,
-        Gateway, Dns, Source.
+        NetworkGraph.Interface: Name, InterfaceKey, Description, Status, Ip, PrefixLength, MacAddress,
+        Vendor, Gateway, Dns, Source.
     #>
     [CmdletBinding()]
     [OutputType('NetworkGraph.Interface')]
@@ -52,14 +57,17 @@ function Get-NetworkInterface {
             }
         }
         'DotNet' {
+            $keys = Get-NetworkGraphInterfaceKeyMap
+            $source = '[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()'
+            if (-not $source.StartsWith($keys.Source)) { $source = "$source; $($keys.Source)" }
             foreach ($adapter in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
                 $properties = $adapter.GetIPProperties()
-                New-NetworkGraphInterfaceRow -Name $adapter.Name -Description $adapter.Description -Status ([string]$adapter.OperationalStatus) `
+                New-NetworkGraphInterfaceRow -Name $adapter.Name -InterfaceKey (Resolve-NetworkGraphInterfaceKey -KeyMap $keys -Name $adapter.Name) -Description $adapter.Description -Status ([string]$adapter.OperationalStatus) `
                     -MacAddress $adapter.GetPhysicalAddress().ToString() `
                     -Address @($properties.UnicastAddresses | ForEach-Object { '{0}/{1}' -f $_.Address, $_.PrefixLength }) `
                     -Gateway @($properties.GatewayAddresses | ForEach-Object { $_.Address.ToString() }) `
                     -Dns @($properties.DnsAddresses | ForEach-Object { $_.ToString() } | Select-Object -Unique) |
-                    Add-Member Source '[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()' -PassThru
+                    Add-Member Source $source -PassThru
             }
         }
     }
@@ -75,6 +83,7 @@ function Get-NetworkInterface {
         [pscustomobject]@{
             PSTypeName   = 'NetworkGraph.Interface'
             Name         = $row.Name
+            InterfaceKey = $row.InterfaceKey
             Description  = $row.Description
             Status       = $row.Status
             Ip           = $row.Ip

@@ -1,6 +1,21 @@
 [
   {
+    "InterfaceAlias": "VirtualBox Host-Only Network",
+    "InterfaceIndex": 8,
+    "InterfaceGuid": "{00000000-0000-0000-0000-000000000008}",
+    "InterfaceDescription": "VirtualBox Host-Only Ethernet Adapter",
+    "Status": "Up",
+    "MacAddress": "0A-00-27-00-00-08",
+    "Ip": [
+      "192.168.56.1/24"
+    ],
+    "Gateway": [],
+    "Dns": []
+  },
+  {
     "InterfaceAlias": "Wi-Fi",
+    "InterfaceIndex": 16,
+    "InterfaceGuid": "{00000000-0000-0000-0000-000000000016}",
     "InterfaceDescription": "Wireless Network Adapter",
     "Status": "Up",
     "MacAddress": "04-56-E5-00-00-10",
@@ -17,13 +32,15 @@
     ]
   },
   {
-    "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",
-    "InterfaceDescription": "Hyper-V Virtual Ethernet Adapter",
-    "Status": "Up",
-    "MacAddress": "00-15-5D-00-00-12",
+    "InterfaceAlias": "Local Area Connection 3",
+    "InterfaceIndex": 27,
+    "InterfaceGuid": "{00000000-0000-0000-0000-000000000027}",
+    "InterfaceDescription": "TAP-Windows Adapter V9 for OpenVPN Connect",
+    "Status": "Disconnected",
+    "MacAddress": "00-FF-D1-00-00-11",
     "Ip": [
-      "172.31.128.1/20",
-      "fe80::1/64"
+      "169.254.179.98/16",
+      "fe80::338c:7406:db1a:720c%27/64"
     ],
     "Gateway": [],
     "Dns": [
@@ -33,13 +50,105 @@
     ]
   },
   {
-    "InterfaceAlias": "Local Area Connection 3",
-    "InterfaceDescription": "TAP-Windows Adapter V9 for OpenVPN Connect",
+    "InterfaceAlias": "Ethernet",
+    "InterfaceIndex": 20,
+    "InterfaceGuid": "{00000000-0000-0000-0000-000000000020}",
+    "InterfaceDescription": "Ethernet Controller",
     "Status": "Disconnected",
-    "MacAddress": "00-FF-D1-00-00-11",
+    "MacAddress": "D8-BB-C1-00-00-30",
     "Ip": [
-      "169.254.179.98/16",
-      "fe80::1/64"
+      "169.254.72.242/16",
+      "fe80::8059:4016:4be3:9fbf%20/64"
+    ],
+    "Gateway": [],
+    "Dns": [
+      "fec0:0:0:ffff::1",
+      "fec0:0:0:ffff::2",
+      "fec0:0:0:ffff::3"
+    ]
+  },
+  {
+    "InterfaceAlias": "Local Area Connection",
+    "InterfaceIndex": 22,
+    "InterfaceGuid": "{00000000-0000-0000-0000-000000000022}",
+    "InterfaceDescription": "TAP-Windows Adapter V9",
+    "Status": "Disconnected",
+    "MacAddress": "00-FF-AB-00-00-31",
+    "Ip": [
+      "169.254.108.47/16",
+      "fe80::8aef:d2bf:1af7:7fd9%22/64"
+    ],
+    "Gateway": [],
+    "Dns": [
+      "fec0:0:0:ffff::1",
+      "fec0:0:0:ffff::2",
+      "fec0:0:0:ffff::3"
+    ]
+  },
+  {
+    "InterfaceAlias": "OpenVPN Data Channel Offload",
+    "InterfaceIndex": 3,
+    "InterfaceGuid": "{00000000-0000-0000-0000-000000000003}",
+    "InterfaceDescription": "OpenVPN Data Channel Offload",
+    "Status": "Disconnected",
+    "MacAddress": "",
+    "Ip": [
+      "169.254.133.82/16",
+      "fe80::cbb5:5740:b0f3:5d7a%3/64"
+    ],
+    "Gateway": [],
+    "Dns": [
+      "fec0:0:0:ffff::1",
+      "fec0:0:0:ffff::2",
+      "fec0:0:0:ffff::3"
+    ]
+  },
+  {
+    "InterfaceAlias": "OpenVPN Wintun",
+    "InterfaceIndex": 10,
+    "InterfaceGuid": "{00000000-0000-0000-0000-000000000010}",
+    "InterfaceDescription": "Wintun Userspace Tunnel",
+    "Status": "Disconnected",
+    "MacAddress": "",
+    "Ip": [
+      "169.254.63.202/16",
+      "fe80::cbb5:5740:b0f3:5d7a%10/64"
+    ],
+    "Gateway": [],
+    "Dns": [
+      "fec0:0:0:ffff::1",
+      "fec0:0:0:ffff::2",
+      "fec0:0:0:ffff::3"
+    ]
+  },
+  {
+    "InterfaceAlias": "Local Area Connection* 12",
+    "InterfaceIndex": 2,
+    "InterfaceGuid": "{00000000-0000-0000-0000-000000000002}",
+    "InterfaceDescription": "Microsoft Wi-Fi Direct Virtual Adapter #4",
+    "Status": "Disconnected",
+    "MacAddress": "06-56-E5-00-00-32",
+    "Ip": [
+      "169.254.173.116/16",
+      "fe80::8474:cd6d:3354:9d18%2/64"
+    ],
+    "Gateway": [],
+    "Dns": [
+      "fec0:0:0:ffff::1",
+      "fec0:0:0:ffff::2",
+      "fec0:0:0:ffff::3"
+    ]
+  },
+  {
+    "InterfaceAlias": "Local Area Connection* 3",
+    "InterfaceIndex": 24,
+    "InterfaceGuid": "{00000000-0000-0000-0000-000000000024}",
+    "InterfaceDescription": "Microsoft Wi-Fi Direct Virtual Adapter #3",
+    "Status": "Disconnected",
+    "MacAddress": "04-56-E5-00-00-33",
+    "Ip": [
+      "169.254.188.251/16",
+      "fe80::fd0c:69f2:e8d:7583%24/64"
     ],
     "Gateway": [],
     "Dns": [

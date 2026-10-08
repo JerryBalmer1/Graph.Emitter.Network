@@ -1,0 +1,62 @@
+[
+  {
+    "Name": "Local Area Connection 3",
+    "Id": "{00000000-0000-0000-0000-000000000027}",
+    "IPv4Index": 27,
+    "IPv6Index": 27
+  },
+  {
+    "Name": "Ethernet",
+    "Id": "{00000000-0000-0000-0000-000000000020}",
+    "IPv4Index": 20,
+    "IPv6Index": 20
+  },
+  {
+    "Name": "OpenVPN Wintun",
+    "Id": "{00000000-0000-0000-0000-000000000010}",
+    "IPv4Index": 10,
+    "IPv6Index": 10
+  },
+  {
+    "Name": "VirtualBox Host-Only Network",
+    "Id": "{00000000-0000-0000-0000-000000000008}",
+    "IPv4Index": 8,
+    "IPv6Index": null
+  },
+  {
+    "Name": "Local Area Connection",
+    "Id": "{00000000-0000-0000-0000-000000000022}",
+    "IPv4Index": 22,
+    "IPv6Index": 22
+  },
+  {
+    "Name": "OpenVPN Data Channel Offload",
+    "Id": "{00000000-0000-0000-0000-000000000003}",
+    "IPv4Index": 3,
+    "IPv6Index": 3
+  },
+  {
+    "Name": "Local Area Connection* 3",
+    "Id": "{00000000-0000-0000-0000-000000000024}",
+    "IPv4Index": 24,
+    "IPv6Index": 24
+  },
+  {
+    "Name": "Local Area Connection* 12",
+    "Id": "{00000000-0000-0000-0000-000000000002}",
+    "IPv4Index": 2,
+    "IPv6Index": 2
+  },
+  {
+    "Name": "Wi-Fi",
+    "Id": "{00000000-0000-0000-0000-000000000016}",
+    "IPv4Index": 16,
+    "IPv6Index": null
+  },
+  {
+    "Name": "Loopback Pseudo-Interface 1",
+    "Id": "{00000000-0000-0000-0000-000000000001}",
+    "IPv4Index": 1,
+    "IPv6Index": 1
+  }
+]

@@ -78,9 +78,12 @@ function Get-TestGraphInput {
         param($A, $R, $D) ConvertFrom-NetworkGraphIpAddrJson -Text $A -RouteText $R -ResolvConf $D
     }
     $interfaces = foreach ($row in $interfaces) {
-        [pscustomobject]@{ PSTypeName = 'NetworkGraph.Interface'; Name = $row.Name; Description = $row.Description; Status = $row.Status; Ip = $row.Ip; PrefixLength = $row.PrefixLength; MacAddress = $row.MacAddress; Vendor = $null; Gateway = $row.Gateway; Dns = $row.Dns; Source = 'ip -j addr' }
+        [pscustomobject]@{ PSTypeName = 'NetworkGraph.Interface'; Name = $row.Name; InterfaceKey = $row.InterfaceKey; Description = $row.Description; Status = $row.Status; Ip = $row.Ip; PrefixLength = $row.PrefixLength; MacAddress = $row.MacAddress; Vendor = $null; Gateway = $row.Gateway; Dns = $row.Dns; Source = 'ip -j addr' }
     }
-    $routes = foreach ($row in InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ip-route.linux.json') } { param($T) ConvertFrom-NetworkGraphIpRouteJson -Text $T }) { & $typed $row 'NetworkGraph.Route' 'ip -j route show table main' }
+    $keys = Get-TestKeyMap -Platform Linux
+    $routes = foreach ($row in InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ip-route.linux.json'); K = $keys } { param($T, $K) ConvertFrom-NetworkGraphIpRouteJson -Text $T -KeyMap $K }) {
+        & $typed $row 'NetworkGraph.Route' 'ip -j route show table main; Get-Content /sys/class/net/*/ifindex'
+    }
     $orphan = InModuleScope NetworkGraph { New-NetworkGraphRouteRow -Cidr '10.99.0.0/16' -NextHop '172.17.0.254' }
     $routes = @($routes) + (& $typed $orphan 'NetworkGraph.Route' 'fixture')
     $hostRow = [pscustomobject]@{ PSTypeName = 'NetworkGraph.Host'; HostName = 'testhost'; Os = 'Ubuntu 22.04.4 LTS'; Platform = 'Linux'; Interfaces = @($interfaces); Routes = @($routes); Source = 'fixture' }
@@ -90,7 +93,7 @@ function Get-TestGraphInput {
         $row | Add-Member Target '1.1.1.1'
         & $typed $row 'NetworkGraph.Hop' 'tracert -d -h 12 -w 2000 1.1.1.1'
     }
-    $neighbors = [pscustomobject]@{ PSTypeName = 'NetworkGraph.Neighbor'; Ip = '172.17.0.1'; MacAddress = '76-7E-57-00-00-21'; Vendor = $null; State = 'Reachable'; Interface = 'eth0'; Source = 'ip -j neigh' }
+    $neighbors = [pscustomobject]@{ PSTypeName = 'NetworkGraph.Neighbor'; Ip = '172.17.0.1'; MacAddress = '76-7E-57-00-00-21'; Vendor = $null; State = 'Reachable'; Interface = 'eth0'; InterfaceKey = '2'; Source = 'ip -j neigh; Get-Content /sys/class/net/*/ifindex' }
     $dns = foreach ($row in InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'dig.linux.txt') } { param($T) ConvertFrom-NetworkGraphDigOutput -Text $T }) {
         $row | Add-Member Query (($row.Type -eq 'PTR') ? '1.1.1.1' : $row.Name)
         & $typed $row 'NetworkGraph.DnsRecord' 'dig +noall +answer'
@@ -105,6 +108,19 @@ function Get-TestGraphInput {
     $port = [pscustomobject]@{ PSTypeName = 'NetworkGraph.Port'; Target = 'one.one.one.one'; Ip = '1.1.1.1'; Port = 443; Protocol = 'Tcp'; Open = $true; Service = 'https'; LatencyMs = 12; Source = 'fixture' }
 
     @($hostRow) + @($connections) + @($hops) + @($neighbors) + @($dns) + @($external) + @($azure) + @($plan) + $loose + @($port)
+}
+
+# The interface key lookup (Get-NetworkGraphInterfaceKeyMap) as it reads on each platform:
+# Windows from tests/fixtures/NetworkInterface.windows.json, captured with the other Windows
+# fixtures; Linux from the ip -j addr capture (ifindex by ifname, as /sys/class/net reports it).
+function Get-TestKeyMap {
+    param([Parameter(Mandatory)][ValidateSet('Windows', 'Linux')][string]$Platform)
+    if ($Platform -eq 'Windows') {
+        return InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'NetworkInterface.windows.json') } { param($O) Get-NetworkGraphInterfaceKeyMap -InputObject $O -Platform Windows }
+    }
+    $map = [pscustomobject]@{ ByIndex = @{}; ByName = @{}; Source = 'Get-Content /sys/class/net/*/ifindex' }
+    foreach ($link in @(Get-Fixture 'ip-addr.linux.json' | ConvertFrom-Json)) { $map.ByIndex["$($link.ifindex)"] = "$($link.ifindex)"; $map.ByName[$link.ifname] = "$($link.ifindex)" }
+    $map
 }
 
 function Clear-NativeFixture {

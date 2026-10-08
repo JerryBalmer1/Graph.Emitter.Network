@@ -1,6 +1,6 @@
 @{
     RootModule        = 'NetworkGraph.psm1'
-    ModuleVersion     = '0.1.1'
+    ModuleVersion     = '0.2.0'
     GUID              = '5d0f6c3e-8a4b-4f61-9e2a-1c7b3d9a6e40'
     Author            = 'Jerry Balmer'
     CompanyName       = 'Jerry Balmer'

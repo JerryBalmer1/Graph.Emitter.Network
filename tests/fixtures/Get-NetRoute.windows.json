@@ -3,7 +3,7 @@
     "DestinationPrefix": "0.0.0.0/0",
     "NextHop": "192.168.0.1",
     "InterfaceAlias": "Wi-Fi",
-    "InterfaceIndex": 15,
+    "InterfaceIndex": 16,
     "RouteMetric": 0,
     "AddressFamily": "IPv4"
   },
@@ -11,7 +11,7 @@
     "DestinationPrefix": "192.168.0.255/32",
     "NextHop": "0.0.0.0",
     "InterfaceAlias": "Wi-Fi",
-    "InterfaceIndex": 15,
+    "InterfaceIndex": 16,
     "RouteMetric": 256,
     "AddressFamily": "IPv4"
   },
@@ -19,7 +19,7 @@
     "DestinationPrefix": "192.168.0.6/32",
     "NextHop": "0.0.0.0",
     "InterfaceAlias": "Wi-Fi",
-    "InterfaceIndex": 15,
+    "InterfaceIndex": 16,
     "RouteMetric": 256,
     "AddressFamily": "IPv4"
   },
@@ -27,7 +27,7 @@
     "DestinationPrefix": "192.168.0.0/24",
     "NextHop": "0.0.0.0",
     "InterfaceAlias": "Wi-Fi",
-    "InterfaceIndex": 15,
+    "InterfaceIndex": 16,
     "RouteMetric": 256,
     "AddressFamily": "IPv4"
   },
@@ -40,10 +40,26 @@
     "AddressFamily": "IPv4"
   },
   {
+    "DestinationPrefix": "::1/128",
+    "NextHop": "::",
+    "InterfaceAlias": "Loopback Pseudo-Interface 1",
+    "InterfaceIndex": 1,
+    "RouteMetric": 256,
+    "AddressFamily": "IPv6"
+  },
+  {
+    "DestinationPrefix": "192.168.56.0/24",
+    "NextHop": "0.0.0.0",
+    "InterfaceAlias": "VirtualBox Host-Only Network",
+    "InterfaceIndex": 8,
+    "RouteMetric": 256,
+    "AddressFamily": "IPv4"
+  },
+  {
     "DestinationPrefix": "fe80::/64",
     "NextHop": "::",
-    "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",
-    "InterfaceIndex": 81,
+    "InterfaceAlias": "Local Area Connection 3",
+    "InterfaceIndex": 27,
     "RouteMetric": 256,
     "AddressFamily": "IPv6"
   }

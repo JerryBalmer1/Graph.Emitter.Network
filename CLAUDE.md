@@ -23,6 +23,7 @@ Node types never have a property named `Address`, `Count`, `Length`, or any othe
 .build.ps1                       Invoke-Build: Test (default), Analyze, Assemble, UpdateData, CheckData
 .claude/skills/networkgraph/     repo-only agent skill (working in this repo; not shipped)
 .claude/skills/manual-check-list, ontology-doc, readme   repo-only skills keeping the three files below in step with the code (ported from TerraformGraph)
+.claude/skills/graph-node/       read-only here: the GraphNode consumer skill, maintained in GraphNode and copied in unchanged; never edit it in this repo. Pester checks its front-matter version against GraphNode's psd1
 README.md                        sysadmin door; README line 1 is a banner linking ONTOLOGY.md; further mentions are allowed; Pester checks only the two banners (skill readme)
 ONTOLOGY.md                      agent door; banner, then backlink to README (skill ontology-doc)
 docs/graph-shape.md              node and edge contract, and where it came from (TerraformGraph)
@@ -82,7 +83,7 @@ A hand-written data file changes only after re-reading its source pages; update 
 
 ## Graph contract
 
-docs/graph-shape.md is the contract; `$script:NetworkGraphNodeContract` in the psm1 holds the same per-kind property lists and `Add-NetworkGraphNode` refuses anything else. Pester parses the doc's tables and compares them with real nodes. Changing a node property means changing the doc, the psm1 table and the tests together. Property names match TerraformGraph's `ConvertTo-TerraformResourceGraph` (Id, Kind first; edges From, To, Kind; graph Root, Nodes, Edges, NodeCount, EdgeCount).
+docs/graph-shape.md is the contract; `$script:NetworkGraphNodeContract` in the psm1 holds the same per-kind property lists and `Add-NetworkGraphNode` refuses anything else. Pester parses the doc's tables and compares them with real nodes. Changing a node property means changing the doc, the psm1 table and the tests together. Property names match TerraformGraph's `ConvertTo-TerraformResourceGraph` (Id, Kind first; edges From, To, Kind; graph Root, Nodes, Edges, NodeCount, EdgeCount). Every edge has Source (after Kind): the Source of the row that asserted it, never empty. Interface and Route Ids are built on InterfaceKey (Windows interface GUID, Linux ifindex), never on the renameable alias.
 
 ## Argument completion
 

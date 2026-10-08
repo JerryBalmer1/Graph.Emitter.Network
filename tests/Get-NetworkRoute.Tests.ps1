@@ -12,12 +12,26 @@ Describe 'Get-NetworkRoute' {
             ($rows | Where-Object Cidr -eq 'fe80::/64').Destination | Should -Be 'fe80::'
         }
 
+        It 'looks up each Get-NetRoute InterfaceIndex for InterfaceKey' {
+            $keys = Get-TestKeyMap -Platform Windows
+            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetRoute.windows.json'); K = $keys } { param($O, $K) ConvertFrom-NetworkGraphNetRoute -InputObject $O -KeyMap $K })
+            ($rows | Where-Object Cidr -eq '0.0.0.0/0').InterfaceKey | Should -Be '{00000000-0000-0000-0000-000000000016}'
+            ($rows | Where-Object Cidr -eq '127.0.0.0/8').InterfaceKey | Should -Be '{00000000-0000-0000-0000-000000000001}' -Because 'the loopback pseudo-interface has a GUID in .NET though Get-NetAdapter leaves it out'
+            foreach ($row in $rows) { $row.InterfaceKey | Should -Not -BeNullOrEmpty -Because "$($row.Cidr) on $($row.Interface)" }
+        }
+
         It 'reads ip -j route' {
             $rows = @(InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ip-route.linux.json') } { param($T) ConvertFrom-NetworkGraphIpRouteJson -Text $T })
             $rows.Cidr | Should -Be @('0.0.0.0/0', '172.17.0.0/16')
             $rows[0].NextHop | Should -Be '172.17.0.1'
             $rows[1].NextHop | Should -BeNullOrEmpty
             $rows.Interface | Select-Object -Unique | Should -Be 'eth0'
+            foreach ($row in $rows) { $row.InterfaceKey | Should -BeNullOrEmpty -Because 'no -KeyMap was given' }
+        }
+
+        It 'looks up each ip -j route dev for InterfaceKey' {
+            $rows = @(InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ip-route.linux.json'); K = (Get-TestKeyMap -Platform Linux) } { param($T, $K) ConvertFrom-NetworkGraphIpRouteJson -Text $T -KeyMap $K })
+            $rows.InterfaceKey | Select-Object -Unique | Should -Be '2'
         }
 
         It 'reads an empty ip -j -6 route' {
@@ -31,13 +45,16 @@ Describe 'Get-NetworkRoute' {
             $v4 = Get-Fixture 'ip-route.linux.json'
             $v6 = Get-Fixture 'ip-route6.linux.json'
             Set-NativeFixture -Output @{ ip = { param($Arguments) ($Arguments -contains '-6') ? $v6 : $v4 }.GetNewClosure() }
+            $keys = Get-TestKeyMap -Platform Linux
+            Mock Get-NetworkGraphInterfaceKeyMap -ModuleName NetworkGraph { $keys }.GetNewClosure()
         }
         AfterAll { Clear-NativeFixture }
 
-        It 'names the command line in Source' {
+        It 'names the command line and the key lookup in Source' {
             $rows = @(Get-NetworkRoute)
             $rows.Count | Should -Be 2
-            $rows[0].Source | Should -Be 'ip -j route show table main'
+            $rows[0].Source | Should -Be 'ip -j route show table main; Get-Content /sys/class/net/*/ifindex'
+            $rows.InterfaceKey | Select-Object -Unique | Should -Be '2'
         }
 
         It 'asks only for IPv4 with -AddressFamily IPv4' {

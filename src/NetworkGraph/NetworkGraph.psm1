@@ -31,13 +31,13 @@ $script:NetworkGraphWebInvoker = $null
 $script:NetworkGraphTcpConnector = $null
 
 # Graph contract: property names per node kind, in order. docs/graph-shape.md documents the same
-# table and Pester asserts the two agree. Edges are From, To, Kind.
+# table and Pester asserts the two agree. Edges are From, To, Kind, Source.
 $script:NetworkGraphNodeBase = 'Id', 'Kind', 'Name', 'Source'
 $script:NetworkGraphNodeContract = [ordered]@{
     Host       = @('HostName', 'Os')
-    Interface  = @('InterfaceName', 'Ip', 'PrefixLength', 'MacAddress', 'Vendor', 'Status')
+    Interface  = @('InterfaceName', 'InterfaceKey', 'Ip', 'PrefixLength', 'MacAddress', 'Vendor', 'Status')
     Subnet     = @('Cidr', 'Cloud', 'PrefixLength', 'Usable', 'BelowCloudMinimum')
-    Route      = @('Destination', 'PrefixLength', 'NextHop', 'InterfaceName', 'Metric')
+    Route      = @('Destination', 'PrefixLength', 'NextHop', 'InterfaceName', 'InterfaceKey', 'Metric')
     Hop        = @('Target', 'Hop', 'Ip', 'RttMs', 'AvgMs', 'LossPercent', 'Responded')
     Connection = @('Protocol', 'LocalIp', 'LocalPort', 'RemoteIp', 'RemotePort', 'State', 'ProcessId')
     Process    = @('ProcessId', 'ProcessName')

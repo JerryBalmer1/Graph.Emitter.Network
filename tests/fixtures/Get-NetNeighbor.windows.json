@@ -1,37 +1,50 @@
 [
   {
-    "IPAddress": "172.31.131.118",
-    "LinkLayerAddress": "00-15-5D-00-00-07",
-    "State": "Stale",
-    "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",
-    "AddressFamily": "IPv4"
-  },
-  {
-    "IPAddress": "192.168.0.29",
-    "LinkLayerAddress": "48-A2-E6-00-00-05",
-    "State": "Stale",
-    "InterfaceAlias": "Wi-Fi",
-    "AddressFamily": "IPv4"
-  },
-  {
     "IPAddress": "192.168.0.33",
-    "LinkLayerAddress": "24-B2-B9-00-00-06",
+    "LinkLayerAddress": "00-00-00-00-00-00",
+    "State": "Unreachable",
+    "InterfaceAlias": "Wi-Fi",
+    "InterfaceIndex": 16,
+    "AddressFamily": "IPv4"
+  },
+  {
+    "IPAddress": "192.168.0.19",
+    "LinkLayerAddress": "10-B6-76-00-00-04",
     "State": "Reachable",
     "InterfaceAlias": "Wi-Fi",
+    "InterfaceIndex": 16,
+    "AddressFamily": "IPv4"
+  },
+  {
+    "IPAddress": "192.168.0.1",
+    "LinkLayerAddress": "CC-40-D0-00-00-02",
+    "State": "Reachable",
+    "InterfaceAlias": "Wi-Fi",
+    "InterfaceIndex": 16,
     "AddressFamily": "IPv4"
   },
   {
     "IPAddress": "255.255.255.255",
     "LinkLayerAddress": "FF-FF-FF-FF-FF-FF",
     "State": "Permanent",
-    "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",
+    "InterfaceAlias": "Wi-Fi",
+    "InterfaceIndex": 16,
     "AddressFamily": "IPv4"
+  },
+  {
+    "IPAddress": "fe80::12b6:76ff:fe00:4",
+    "LinkLayerAddress": "",
+    "State": "Stale",
+    "InterfaceAlias": "OpenVPN Wintun",
+    "InterfaceIndex": 10,
+    "AddressFamily": "IPv6"
   },
   {
     "IPAddress": "fe80::12b6:76ff:fe00:4",
     "LinkLayerAddress": "00-00-00-00-00-00",
     "State": "Unreachable",
-    "InterfaceAlias": "vEthernet (WSL (Hyper-V firewall))",
+    "InterfaceAlias": "Ethernet",
+    "InterfaceIndex": 20,
     "AddressFamily": "IPv6"
   }
 ]
