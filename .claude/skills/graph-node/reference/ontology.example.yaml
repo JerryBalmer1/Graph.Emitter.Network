@@ -1,0 +1,31 @@
+module: Example
+version: 0.1.0
+kinds:
+  VNet:
+    description: A virtual network.
+    idRule: "vnet:<name>"
+    properties: [cidr]
+    display: { color: "#4a90e2", shape: round-rectangle }
+  Subnet:
+    idRule: "snet:<name>"
+    properties:
+      - { name: cidr, type: string, required: true }
+    display: { color: "#2ec4b6", shape: hexagon }
+    actions:
+      - name: attach
+        description: Attach a VM to this subnet.
+        inputs: { vm: VM }
+        trigger: manual
+        permissions: [network.write]
+  VM:
+    idRule: "vm:<name>"
+    display: { color: "#e07a9a", shape: ellipse }
+  ActionRun:
+    description: Base kind from GraphNode.
+    display: { color: "#f5a623", shape: diamond }
+edgeKinds:
+  contains: { from: [VNet], to: [Subnet] }
+  on:       { from: [VM],   to: [Subnet] }
+  performed-on: { from: [ActionRun], to: [VM, Subnet] }
+findingKinds:
+  unused-subnet: { severity: info }
