@@ -31,7 +31,7 @@ There was no PowerShell module that did cloud-aware subnet math and also read th
 
 IPv4 is the v1 target. IPv6 runs through the same code and is tested, but the cloud rules, the examples and the manual checks are IPv4.
 
-Source version **0.3.0**. Not yet published to the PowerShell Gallery: install from a clone (see [Install](#install)).
+Source version **0.3.1**. Not yet published to the PowerShell Gallery: install from a clone (see [Install](#install)).
 
 ---
 

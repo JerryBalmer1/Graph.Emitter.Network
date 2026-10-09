@@ -23,7 +23,8 @@ Node types never have a property named `Address`, `Count`, `Length`, or any othe
 .build.ps1                       Invoke-Build: Test (default), Analyze, Assemble, UpdateData, CheckData
 .claude/skills/networkgraph/     repo-only agent skill (working in this repo; not shipped)
 .claude/skills/manual-check-list, ontology-doc, readme   repo-only skills keeping the three files below in step with the code (ported from TerraformGraph)
-.claude/skills/graph-node/       read-only here: the GraphNode consumer skill, maintained in GraphNode and copied in unchanged; never edit it in this repo. Pester checks its front-matter version against GraphNode's psd1
+.claude/skills/graph-node, run-report, git-guard   read-only here: copied unchanged from Graph (C:\__Code\Graph\.claude\skills\<name>); never edit them in this repo. tests/CopiedSkills.Tests.ps1 checks each one's version: and full text against Graph's committed copy, and git-guard's exit codes
+.claude/settings.json            git-guard's PreToolUse hook: refuses commit, push and tag from an agent's Bash or PowerShell call
 README.md                        sysadmin door; README line 1 is a banner linking ONTOLOGY.md; further mentions are allowed; Pester checks only the two banners (skill readme)
 ONTOLOGY.md                      agent door; banner, then backlink to README (skill ontology-doc)
 docs/graph-shape.md              node and edge contract, and where it came from (TerraformGraph)
