@@ -360,7 +360,7 @@ Describe 'Ontology' {
 
 Describe 'graph-node skill (copied from GraphNode, read-only here)' {
     It 'front-matter version equals GraphNode''s ModuleVersion' {
-        $graphNodeManifest = 'C:\__Code\GraphNode\src\GraphNode\GraphNode.psd1'
+        $graphNodeManifest = 'C:\__Code\Graph.Node\src\GraphNode\GraphNode.psd1'
         if (-not (Test-Path -LiteralPath $graphNodeManifest)) {
             Set-ItResult -Skipped -Because "GraphNode is not checked out at $graphNodeManifest"
             return

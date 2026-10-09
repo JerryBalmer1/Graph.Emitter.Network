@@ -10,3 +10,8 @@ dist/
 
 # Pester output
 testResults.xml
+
+# Local build output and secrets
+artifacts/
+build/
+.env
