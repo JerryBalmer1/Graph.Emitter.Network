@@ -1,15 +1,15 @@
 ---
 name: networkgraph
-description: Load when calculating subnets (Azure, AWS, GCP reservations, VLSM plans, overlaps), classifying IP or MAC addresses, observing a host's network (connections, routes, neighbours, traces, ports, DNS) or graphing it in PowerShell with the NetworkGraph module.
+description: Load when calculating subnets (Azure, AWS, GCP reservations, VLSM plans, overlaps), classifying IP or MAC addresses, observing a host's network (connections, routes, neighbours, traces, ports, DNS) or graphing it in PowerShell with the Graph.Emitter.Network module.
 ---
 
-# NetworkGraph
+# Graph.Emitter.Network
 
 PowerShell 7.4+ module in three groups. Windows and Linux are supported; macOS is untested. IPv4 is the v1 target; IPv6 works through the same code.
 
 ```powershell
-Import-Module NetworkGraph                                  # installed copy
-Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force   # from a clone
+Import-Module Graph.Emitter.Network                                  # installed copy
+Import-Module .\src\Graph.Emitter.Network\Graph.Emitter.Network.psd1 -Force   # from a clone
 ```
 
 ## Calculate (offline, deterministic)

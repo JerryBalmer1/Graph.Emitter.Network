@@ -3,13 +3,13 @@
 # $env:LOCALAPPDATA\NetworkGraph\data. Live tests (tag Live) run only with NETWORKGRAPH_LIVE=1.
 
 $script:RepoRoot = Split-Path -Parent $PSScriptRoot
-$script:ModuleRoot = Join-Path $script:RepoRoot 'src' 'NetworkGraph'
+$script:ModuleRoot = Join-Path $script:RepoRoot 'src' 'Graph.Emitter.Network'
 $script:Fixtures = Join-Path $PSScriptRoot 'fixtures'
 
-Get-Module NetworkGraph | Remove-Module -Force
-Import-Module (Join-Path $script:ModuleRoot 'NetworkGraph.psd1') -Force -ErrorAction Stop
+Get-Module Graph.Emitter.Network | Remove-Module -Force
+Import-Module (Join-Path $script:ModuleRoot 'Graph.Emitter.Network.psd1') -Force -ErrorAction Stop
 $emptyUserRoot = Join-Path $TestDrive 'user-data'
-InModuleScope NetworkGraph -Parameters @{ Root = $emptyUserRoot } {
+InModuleScope Graph.Emitter.Network -Parameters @{ Root = $emptyUserRoot } {
     param($Root)
     $script:NetworkGraphDataUserRoot = $Root
     $script:NetworkGraphDataMemo = @{}
@@ -36,7 +36,7 @@ function Set-NativeFixture {
     param([Parameter(Mandatory)][hashtable]$Output, [hashtable]$ExitCode = @{}, [hashtable]$ErrorText = @{})
     $script:NativeCalls = [System.Collections.Generic.List[object]]::new()
     $calls = $script:NativeCalls
-    InModuleScope NetworkGraph -Parameters @{ Output = $Output; ExitCode = $ExitCode; ErrorText = $ErrorText; Calls = $calls } {
+    InModuleScope Graph.Emitter.Network -Parameters @{ Output = $Output; ExitCode = $ExitCode; ErrorText = $ErrorText; Calls = $calls } {
         param($Output, $ExitCode, $ErrorText, $Calls)
         $script:NetworkGraphNativeInvoker = {
             param($FilePath, $ArgumentList)
@@ -52,7 +52,7 @@ function Set-NativeFixture {
 # called with the URL; a missing URL throws, as a failed request does).
 function Set-WebFixture {
     param([Parameter(Mandatory)][hashtable]$Content)
-    InModuleScope NetworkGraph -Parameters @{ Content = $Content } {
+    InModuleScope Graph.Emitter.Network -Parameters @{ Content = $Content } {
         param($Content)
         $script:NetworkGraphWebInvoker = {
             param($Uri)
@@ -74,27 +74,27 @@ function Get-TestGraphInput {
         if ($Source -and -not $Row.PSObject.Properties['Source']) { $Row | Add-Member Source $Source }
         $Row
     }
-    $interfaces = InModuleScope NetworkGraph -Parameters @{ A = (Get-Fixture 'ip-addr.linux.json'); R = (Get-Fixture 'ip-route.linux.json'); D = (Get-Fixture 'resolv.conf.linux.txt') } {
+    $interfaces = InModuleScope Graph.Emitter.Network -Parameters @{ A = (Get-Fixture 'ip-addr.linux.json'); R = (Get-Fixture 'ip-route.linux.json'); D = (Get-Fixture 'resolv.conf.linux.txt') } {
         param($A, $R, $D) ConvertFrom-NetworkGraphIpAddrJson -Text $A -RouteText $R -ResolvConf $D
     }
     $interfaces = foreach ($row in $interfaces) {
         [pscustomobject]@{ PSTypeName = 'NetworkGraph.Interface'; Name = $row.Name; InterfaceKey = $row.InterfaceKey; Description = $row.Description; Status = $row.Status; Ip = $row.Ip; PrefixLength = $row.PrefixLength; MacAddress = $row.MacAddress; Vendor = $null; Gateway = $row.Gateway; Dns = $row.Dns; Source = 'ip -j addr' }
     }
     $keys = Get-TestKeyMap -Platform Linux
-    $routes = foreach ($row in InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ip-route.linux.json'); K = $keys } { param($T, $K) ConvertFrom-NetworkGraphIpRouteJson -Text $T -KeyMap $K }) {
+    $routes = foreach ($row in InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'ip-route.linux.json'); K = $keys } { param($T, $K) ConvertFrom-NetworkGraphIpRouteJson -Text $T -KeyMap $K }) {
         & $typed $row 'NetworkGraph.Route' 'ip -j route show table main; Get-Content /sys/class/net/*/ifindex'
     }
-    $orphan = InModuleScope NetworkGraph { New-NetworkGraphRouteRow -Cidr '10.99.0.0/16' -NextHop '172.17.0.254' }
+    $orphan = InModuleScope Graph.Emitter.Network { New-NetworkGraphRouteRow -Cidr '10.99.0.0/16' -NextHop '172.17.0.254' }
     $routes = @($routes) + (& $typed $orphan 'NetworkGraph.Route' 'fixture')
     $hostRow = [pscustomobject]@{ PSTypeName = 'NetworkGraph.Host'; HostName = 'testhost'; Os = 'Ubuntu 22.04.4 LTS'; Platform = 'Linux'; Interfaces = @($interfaces); Routes = @($routes); Source = 'fixture' }
 
-    $connections = foreach ($row in InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ss.linux.txt') } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T }) { & $typed $row 'NetworkGraph.Connection' 'ss -tunap' }
-    $hops = foreach ($row in InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'tracert.windows.txt') } { param($T) ConvertFrom-NetworkGraphTracertOutput -Text $T }) {
+    $connections = foreach ($row in InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'ss.linux.txt') } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T }) { & $typed $row 'NetworkGraph.Connection' 'ss -tunap' }
+    $hops = foreach ($row in InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'tracert.windows.txt') } { param($T) ConvertFrom-NetworkGraphTracertOutput -Text $T }) {
         $row | Add-Member Target '1.1.1.1'
         & $typed $row 'NetworkGraph.Hop' 'tracert -d -h 12 -w 2000 1.1.1.1'
     }
     $neighbors = [pscustomobject]@{ PSTypeName = 'NetworkGraph.Neighbor'; Ip = '172.17.0.1'; MacAddress = '76-7E-57-00-00-21'; Vendor = $null; State = 'Reachable'; Interface = 'eth0'; InterfaceKey = '2'; Source = 'ip -j neigh; Get-Content /sys/class/net/*/ifindex' }
-    $dns = foreach ($row in InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'dig.linux.txt') } { param($T) ConvertFrom-NetworkGraphDigOutput -Text $T }) {
+    $dns = foreach ($row in InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'dig.linux.txt') } { param($T) ConvertFrom-NetworkGraphDigOutput -Text $T }) {
         $row | Add-Member Query (($row.Type -eq 'PTR') ? '1.1.1.1' : $row.Name)
         & $typed $row 'NetworkGraph.DnsRecord' 'dig +noall +answer'
     }
@@ -116,7 +116,7 @@ function Get-TestGraphInput {
 function Get-TestKeyMap {
     param([Parameter(Mandatory)][ValidateSet('Windows', 'Linux')][string]$Platform)
     if ($Platform -eq 'Windows') {
-        return InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'NetworkInterface.windows.json') } { param($O) Get-NetworkGraphInterfaceKeyMap -InputObject $O -Platform Windows }
+        return InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'NetworkInterface.windows.json') } { param($O) Get-NetworkGraphInterfaceKeyMap -InputObject $O -Platform Windows }
     }
     $map = [pscustomobject]@{ ByIndex = @{}; ByName = @{}; Source = 'Get-Content /sys/class/net/*/ifindex' }
     foreach ($link in @(Get-Fixture 'ip-addr.linux.json' | ConvertFrom-Json)) { $map.ByIndex["$($link.ifindex)"] = "$($link.ifindex)"; $map.ByName[$link.ifname] = "$($link.ifindex)" }
@@ -124,5 +124,5 @@ function Get-TestKeyMap {
 }
 
 function Clear-NativeFixture {
-    InModuleScope NetworkGraph { $script:NetworkGraphNativeInvoker = $null; $script:NetworkGraphWebInvoker = $null }
+    InModuleScope Graph.Emitter.Network { $script:NetworkGraphNativeInvoker = $null; $script:NetworkGraphWebInvoker = $null }
 }

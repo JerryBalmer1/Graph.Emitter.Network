@@ -10,7 +10,7 @@ function Get-NetworkGraphDataDocument {
 
     $location = Get-NetworkGraphDataPath -Kind $Kind
     if (-not $location.Path) {
-        $fix = ($Kind -in $script:NetworkGraphHarvestKinds) ? "Update-NetworkGraphData -Kind $Kind" : 'reinstall the module (Install-Module NetworkGraph -Force)'
+        $fix = ($Kind -in $script:NetworkGraphHarvestKinds) ? "Update-NetworkGraphData -Kind $Kind" : 'reinstall the module (Install-Module Graph.Emitter.Network -Force)'
         throw [System.IO.FileNotFoundException]::new("No $Kind data: neither $($location.UserPath) nor $($location.BundledPath) exists. Run $fix.")
     }
 

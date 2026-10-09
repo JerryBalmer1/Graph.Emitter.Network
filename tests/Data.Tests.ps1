@@ -2,12 +2,12 @@ BeforeAll {
     . (Join-Path $PSScriptRoot 'TestSetup.ps1')
     $script:DataRoot = Join-Path $ModuleRoot 'data'
     function Read-DataFile([string]$Name) {
-        InModuleScope NetworkGraph -Parameters @{ Path = (Join-Path $DataRoot $Name) } { param($Path) Read-NetworkGraphDataText -Path $Path } | ConvertFrom-Json -AsHashtable -Depth 64
+        InModuleScope Graph.Emitter.Network -Parameters @{ Path = (Join-Path $DataRoot $Name) } { param($Path) Read-NetworkGraphDataText -Path $Path } | ConvertFrom-Json -AsHashtable -Depth 64
     }
 }
 
 Describe 'Data files' {
-    It 'has the six kinds in src/NetworkGraph/data and nothing else' {
+    It 'has the six kinds in src/Graph.Emitter.Network/data and nothing else' {
         @(Get-ChildItem $DataRoot -File).Name | Sort-Object | Should -Be @('cloud-ranges.json.gz', 'cloud-reservations.json', 'ip-sources.json', 'oui.json', 'ports.json', 'special-use.json')
     }
 

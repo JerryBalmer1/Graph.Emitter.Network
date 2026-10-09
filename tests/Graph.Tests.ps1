@@ -36,7 +36,7 @@ Describe 'Graph contract (docs/graph-shape.md)' {
     }
 
     It 'the module table matches the doc table' {
-        $module = InModuleScope NetworkGraph { $script:NetworkGraphNodeContract }
+        $module = InModuleScope Graph.Emitter.Network { $script:NetworkGraphNodeContract }
         foreach ($kind in $NodeContract.Keys) {
             @('Id', 'Kind', 'Name') + @($module[$kind]) + @('Source') | Should -Be $NodeContract[$kind] -Because $kind
         }
@@ -91,10 +91,10 @@ Describe 'Graph contract (docs/graph-shape.md)' {
         # The table's rows: from its header to the first line that is not a table row.
         $rows = @(($section.Trim() -split "`r?`n") | ForEach-Object -Begin { $inTable = $true } -Process { if ($inTable -and $_ -match '^\|') { $_ } else { $inTable = $false } })
         $documented = @($rows | Select-Object -Skip 2 | ForEach-Object { ($_.Trim('|') -split '\|')[0].Trim() } | Select-Object -Unique)
-        $module = @(InModuleScope NetworkGraph { $script:NetworkGraphEdgeKinds })
+        $module = @(InModuleScope Graph.Emitter.Network { $script:NetworkGraphEdgeKinds })
         ($documented -join ',') | Should -BeExactly ($module -join ',')
         foreach ($kind in $module) { $kind | Should -MatchExactly '^[A-Z][a-z]+([A-Z][a-z]+)*$' }
-        InModuleScope NetworkGraph {
+        InModuleScope Graph.Emitter.Network {
             $state = [pscustomobject]@{ EdgeKeys = [System.Collections.Generic.HashSet[string]]::new(); Edges = [System.Collections.Generic.List[object]]::new() }
             { Add-NetworkGraphEdge -State $state -From a -To b -Kind contains -Source fixture } | Should -Throw '*Unknown edge kind*'
         }
@@ -125,7 +125,7 @@ Describe 'Every Source is pasteable' {
             }) | Select-Object -Unique
 
         # Native tools through the seam, each with its own fixture.
-        Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { $script:NextTool }
+        Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { $script:NextTool }
         $ip = {
             param($Arguments)
             if ($Arguments -contains 'neigh') { Get-Fixture 'ip-neigh.linux.json' }
@@ -174,25 +174,25 @@ Describe 'Every Source is pasteable' {
         # Get-NetworkHost on the Linux path: ufw.conf read without root, ip for interfaces and routes.
         $conf = Join-Path $TestDrive 'ufw.conf'
         Set-Content -LiteralPath $conf -Value (Get-Fixture 'ufw.conf.linux.txt') -NoNewline
-        InModuleScope NetworkGraph -Parameters @{ Conf = $conf } { param($Conf) $script:NetworkGraphPlatform = 'Linux'; $script:NetworkGraphUfwConfPath = $Conf }
+        InModuleScope Graph.Emitter.Network -Parameters @{ Conf = $conf } { param($Conf) $script:NetworkGraphPlatform = 'Linux'; $script:NetworkGraphUfwConfPath = $Conf }
         $script:NextTool = 'ip'
         $hostRow = Get-NetworkHost -Tool Native
         Add-Source 'Get-NetworkHost (Linux)' $hostRow
-        InModuleScope NetworkGraph { $script:NetworkGraphPlatform = $IsWindows ? 'Windows' : ($IsLinux ? 'Linux' : 'macOS'); $script:NetworkGraphUfwConfPath = '/etc/ufw/ufw.conf' }
+        InModuleScope Graph.Emitter.Network { $script:NetworkGraphPlatform = $IsWindows ? 'Windows' : ($IsLinux ? 'Linux' : 'macOS'); $script:NetworkGraphUfwConfPath = '/etc/ufw/ufw.conf' }
 
         # Windows cmdlets, replaced by their fixtures (they exist only on Windows).
         if ($IsWindows) {
             $windowsKeys = Get-TestKeyMap -Platform Windows
-            Mock Get-NetworkGraphInterfaceKeyMap -ModuleName NetworkGraph { $windowsKeys }.GetNewClosure()
-            Mock Get-NetTCPConnection -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetTCPConnection.windows.json' }
-            Mock Get-NetUDPEndpoint -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetUDPEndpoint.windows.json' }
-            Mock Get-NetRoute -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetRoute.windows.json' }
-            Mock Get-NetNeighbor -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetNeighbor.windows.json' }
-            Mock Get-NetworkGraphNetIPConfiguration -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetIPConfiguration.windows.json' }
-            Mock Resolve-DnsName -ModuleName NetworkGraph { Get-FixtureJson 'Resolve-DnsName.windows.json' }
-            Mock Test-NetConnection -ModuleName NetworkGraph { (Get-FixtureJson 'Test-NetConnection.windows.json')[0] }
-            Mock Get-NetFirewallProfile -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetFirewallProfile.windows.json' }
-            Mock Get-NetworkGraphFirewallProduct -ModuleName NetworkGraph { Get-FixtureJson 'FirewallProduct.windows.json' }
+            Mock Get-NetworkGraphInterfaceKeyMap -ModuleName Graph.Emitter.Network { $windowsKeys }.GetNewClosure()
+            Mock Get-NetTCPConnection -ModuleName Graph.Emitter.Network { Get-FixtureJson 'Get-NetTCPConnection.windows.json' }
+            Mock Get-NetUDPEndpoint -ModuleName Graph.Emitter.Network { Get-FixtureJson 'Get-NetUDPEndpoint.windows.json' }
+            Mock Get-NetRoute -ModuleName Graph.Emitter.Network { Get-FixtureJson 'Get-NetRoute.windows.json' }
+            Mock Get-NetNeighbor -ModuleName Graph.Emitter.Network { Get-FixtureJson 'Get-NetNeighbor.windows.json' }
+            Mock Get-NetworkGraphNetIPConfiguration -ModuleName Graph.Emitter.Network { Get-FixtureJson 'Get-NetIPConfiguration.windows.json' }
+            Mock Resolve-DnsName -ModuleName Graph.Emitter.Network { Get-FixtureJson 'Resolve-DnsName.windows.json' }
+            Mock Test-NetConnection -ModuleName Graph.Emitter.Network { (Get-FixtureJson 'Test-NetConnection.windows.json')[0] }
+            Mock Get-NetFirewallProfile -ModuleName Graph.Emitter.Network { Get-FixtureJson 'Get-NetFirewallProfile.windows.json' }
+            Mock Get-NetworkGraphFirewallProduct -ModuleName Graph.Emitter.Network { Get-FixtureJson 'FirewallProduct.windows.json' }
             $cmdlets = [ordered]@{
                 'Get-NetTCPConnection'   = { Get-NetworkConnection -Tool Native }
                 'Get-NetRoute'           = { Get-NetworkRoute -Tool Native }
@@ -225,7 +225,7 @@ Describe 'Every Source is pasteable' {
         Add-Source 'Get-NetworkRoute DotNet' (Get-NetworkRoute -Tool DotNet | Select-Object -First 1)
         Add-Source 'Get-NetworkInterface DotNet' (Get-NetworkInterface -Tool DotNet | Select-Object -First 1)
         Add-Source 'Resolve-NetworkName DotNet' (Resolve-NetworkName localhost -Type A -Tool DotNet)
-        Mock Get-NetworkGraphDotNetTrace -ModuleName NetworkGraph { [pscustomobject]@{ Hop = 1; Ip = '127.0.0.1'; Host = $null; RttMs = @(0.1); AvgMs = 0.1; LossPercent = 0; Responded = $true } }
+        Mock Get-NetworkGraphDotNetTrace -ModuleName Graph.Emitter.Network { [pscustomobject]@{ Hop = 1; Ip = '127.0.0.1'; Host = $null; RttMs = @(0.1); AvgMs = 0.1; LossPercent = 0; Responded = $true } }
         Add-Source 'Trace-NetworkPath DotNet' (Trace-NetworkPath 127.0.0.1 -MaxHops 3 -Tool DotNet)
         if ($IsWindows) { Add-Source 'Test-NetworkPath DotNet' (Test-NetworkPath 127.0.0.1 -Count 1 -Tool DotNet) }
         if ($IsLinux) { Add-Source 'Get-NetworkNeighbor DotNet' (Get-NetworkNeighbor -Tool DotNet -IncludeUnresolved | Select-Object -First 1) }

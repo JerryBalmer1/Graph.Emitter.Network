@@ -8,7 +8,7 @@ BeforeAll {
 }
 
 Describe 'Get-ExternalIpAddress' {
-    BeforeAll { Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'DotNet' } }
+    BeforeAll { Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'DotNet' } }
     AfterEach { Clear-NativeFixture }
 
     It 'asks every endpoint in ip-sources.json and reports agreement' {
@@ -87,7 +87,7 @@ Describe 'Get-ExternalIpAddress' {
     }
 
     It 'uses curl when it is the chosen tool' {
-        Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'curl' }
+        Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'curl' }
         Set-NativeFixture -Output @{ curl = { param($Arguments) ($Arguments[-1] -like '*ipify*') ? '{"ip":"203.0.113.7"}' : '203.0.113.7' } }
         $result = Get-ExternalIpAddress
         $result.Ip | Should -Be '203.0.113.7'

@@ -210,9 +210,9 @@ I ran each task as an agent would: grep first, then read only the ranges needed 
 | File | Lines | Read |
 |---|---|---|
 | `grep -rin rdap src tests docs README.md` output | | 40 |
-| src/NetworkGraph/data/ip-sources.json (the URL lives here) | 1-24 | 24 |
-| src/NetworkGraph/Private/Get-NetworkGraphRdap.ps1 (the `{ip}` template, the fallback trigger) | 1-37 | 37 |
-| src/NetworkGraph/Public/Get-ExternalIpAddress.ps1 (help names rdap.org) | 6-19 | 14 |
+| src/Graph.Emitter.Network/data/ip-sources.json (the URL lives here) | 1-24 | 24 |
+| src/Graph.Emitter.Network/Private/Get-NetworkGraphRdap.ps1 (the `{ip}` template, the fallback trigger) | 1-37 | 37 |
+| src/Graph.Emitter.Network/Public/Get-ExternalIpAddress.ps1 (help names rdap.org) | 6-19 | 14 |
 | tests/Get-ExternalIpAddress.Tests.ps1 (mocked URLs) | 40-64 | 25 |
 | CLAUDE.md, "Data" (hand-written file: re-read the sources, update `pulled`) | | 8 |
 | **Total** | 5 files and a grep | **148** |
@@ -221,10 +221,10 @@ I ran each task as an agent would: grep first, then read only the ranges needed 
 
 | File | Lines | Read |
 |---|---|---|
-| src/NetworkGraph/Public/Get-NetworkConnection.ps1 (help, ValidateSet, three tool branches, filter) | 1-135 | 135 |
-| src/NetworkGraph/Private/ConvertFrom-NetworkGraphNetTcpConnection.ps1 (passes the Windows enum through as text) | 1-21 | 21 |
-| src/NetworkGraph/Private/ConvertTo-NetworkGraphTcpState.ps1 (the ss map: is there an equivalent?) | 1-17 | 17 |
-| src/NetworkGraph/Private/New-NetworkGraphConnectionRow.ps1 (the no-peer rule keys on State) | 1-30 | 30 |
+| src/Graph.Emitter.Network/Public/Get-NetworkConnection.ps1 (help, ValidateSet, three tool branches, filter) | 1-135 | 135 |
+| src/Graph.Emitter.Network/Private/ConvertFrom-NetworkGraphNetTcpConnection.ps1 (passes the Windows enum through as text) | 1-21 | 21 |
+| src/Graph.Emitter.Network/Private/ConvertTo-NetworkGraphTcpState.ps1 (the ss map: is there an equivalent?) | 1-17 | 17 |
+| src/Graph.Emitter.Network/Private/New-NetworkGraphConnectionRow.ps1 (the no-peer rule keys on State) | 1-30 | 30 |
 | `grep -n State` over the graph and tests | | 15 |
 | tests/Get-NetworkConnection.Tests.ps1 (the -State filter test) | 55-70 | 16 |
 | tests/Module.Tests.ps1 (the -State completion test) | 98-104 | 7 |
@@ -236,9 +236,9 @@ I ran each task as an agent would: grep first, then read only the ranges needed 
 
 | File | Lines | Read |
 |---|---|---|
-| src/NetworkGraph/Public/Trace-NetworkPath.ps1 (the help states the answer at line 12; lines 68-108 map tool to parser) | 1-13, 68-108 | 54 |
-| src/NetworkGraph/Private/ConvertFrom-NetworkGraphTracertOutput.ps1 (`*` counts as lost) | 1-32 | 32 |
-| src/NetworkGraph/Private/ConvertFrom-NetworkGraphHopText.ps1 (`Request timed out.` gives Ip `$null`) | 1-12 | 12 |
+| src/Graph.Emitter.Network/Public/Trace-NetworkPath.ps1 (the help states the answer at line 12; lines 68-108 map tool to parser) | 1-13, 68-108 | 54 |
+| src/Graph.Emitter.Network/Private/ConvertFrom-NetworkGraphTracertOutput.ps1 (`*` counts as lost) | 1-32 | 32 |
+| src/Graph.Emitter.Network/Private/ConvertFrom-NetworkGraphHopText.ps1 (`Request timed out.` gives Ip `$null`) | 1-12 | 12 |
 | tests/fixtures/tracert.windows.txt (hop 4: `* * * Request timed out.`) | 1-12 | 12 |
 | tests/Trace-NetworkPath.Tests.ps1 (pins `LossPercent 100`) | 10-20 | 11 |
 | **Total for Windows (tracert)** | 5 files | **121** |

@@ -8,7 +8,7 @@ function Invoke-NetworkScan {
         parsed into the rows Test-NetworkPort returns. Nothing else is added: no scripts, no
         version or OS detection. If nmap is absent (or with -Tool DotNet) each target and port is
         tested with a TCP connect through System.Net.Sockets.TcpClient, -ThrottleLimit at a time
-        (UDP: one datagram per port, as Test-NetworkPort does). NetworkGraph ships no scanner and
+        (UDP: one datagram per port, as Test-NetworkPort does). Graph.Emitter.Network ships no scanner and
         no nmap.
 
         Only scan hosts you are allowed to scan.

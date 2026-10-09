@@ -4,7 +4,7 @@ BeforeAll {
 
 Describe 'Invoke-NetworkScan' {
     It 'reads nmap -oX XML (fixture)' {
-        $rows = @(InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'nmap.linux.xml') } { param($T) ConvertFrom-NetworkGraphNmapXml -Text $T })
+        $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'nmap.linux.xml') } { param($T) ConvertFrom-NetworkGraphNmapXml -Text $T })
         $rows.Count | Should -Be 8
         $open = $rows | Where-Object { $_.Ip -eq '127.0.0.1' -and $_.Port -eq 8080 }
         $open.Open | Should -BeTrue
@@ -18,7 +18,7 @@ Describe 'Invoke-NetworkScan' {
 
     Context 'nmap through the seam' {
         BeforeAll {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'nmap' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'nmap' }
             Set-NativeFixture -Output @{ nmap = (Get-Fixture 'nmap.linux.xml') }
         }
         AfterAll { Clear-NativeFixture }

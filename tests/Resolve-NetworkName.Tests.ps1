@@ -1,7 +1,7 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot 'TestSetup.ps1')
     function ConvertText([string]$Parser, [string]$Name) {
-        @(InModuleScope NetworkGraph -Parameters @{ P = $Parser; T = (Get-Fixture $Name) } { param($P, $T) & $P -Text $T })
+        @(InModuleScope Graph.Emitter.Network -Parameters @{ P = $Parser; T = (Get-Fixture $Name) } { param($P, $T) & $P -Text $T })
     }
 }
 
@@ -32,17 +32,17 @@ Describe 'Resolve-NetworkName' {
 
         It 'maps Resolve-DnsName objects, answers only by default' {
             $objects = Get-FixtureJson 'Resolve-DnsName.windows.json'
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = $objects } { param($O) ConvertFrom-NetworkGraphResolveDnsName -InputObject $O })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = $objects } { param($O) ConvertFrom-NetworkGraphResolveDnsName -InputObject $O })
             $rows.Type | Should -Be @('A', 'A', 'MX', 'PTR')
             $rows[2].Data | Should -Be '10 smtp.google.com'
             $rows[3].Data | Should -Be 'one.one.one.one'
-            @(InModuleScope NetworkGraph -Parameters @{ O = $objects } { param($O) ConvertFrom-NetworkGraphResolveDnsName -InputObject $O -IncludeAdditional }).Count | Should -Be 13
+            @(InModuleScope Graph.Emitter.Network -Parameters @{ O = $objects } { param($O) ConvertFrom-NetworkGraphResolveDnsName -InputObject $O -IncludeAdditional }).Count | Should -Be 13
         }
     }
 
     Context 'dig through the seam' {
         BeforeAll {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'dig' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'dig' }
             Set-NativeFixture -Output @{ dig = (Get-Fixture 'dig.linux.txt') }
         }
         AfterAll { Clear-NativeFixture }
@@ -62,7 +62,7 @@ Describe 'Resolve-NetworkName' {
     }
 
     Context '.NET floor' {
-        BeforeAll { Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'DotNet' } }
+        BeforeAll { Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'DotNet' } }
 
         It 'resolves localhost' {
             $rows = @(Resolve-NetworkName localhost)

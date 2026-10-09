@@ -5,7 +5,7 @@ BeforeAll {
 Describe 'Get-NetworkConnection' {
     Context 'parsers (fixtures)' {
         It 'reads ss -tunap with processes and v4-mapped addresses' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ss.linux.txt') } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'ss.linux.txt') } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T })
             $rows.Count | Should -Be 14
             $listener = $rows[0]
             "$($listener.Protocol) $($listener.LocalIp):$($listener.LocalPort) $($listener.State) $($listener.ProcessId) $($listener.ProcessName)" | Should -Be 'Tcp 0.0.0.0:8080 Listen 1264 nc'
@@ -20,7 +20,7 @@ Describe 'Get-NetworkConnection' {
         }
 
         It 'maps Get-NetTCPConnection objects' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetTCPConnection.windows.json') } { param($O) ConvertFrom-NetworkGraphNetTcpConnection -InputObject $O -ProcessName @{ 1660 = 'svchost' } })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetTCPConnection.windows.json') } { param($O) ConvertFrom-NetworkGraphNetTcpConnection -InputObject $O -ProcessName @{ 1660 = 'svchost' } })
             $rows.Count | Should -Be 10
             $rows[0].State | Should -Be 'Listen'
             $rows[0].RemoteIp | Should -BeNullOrEmpty
@@ -30,7 +30,7 @@ Describe 'Get-NetworkConnection' {
         }
 
         It 'maps Get-NetUDPEndpoint objects' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetUDPEndpoint.windows.json') } { param($O) ConvertFrom-NetworkGraphNetUdpEndpoint -InputObject $O })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetUDPEndpoint.windows.json') } { param($O) ConvertFrom-NetworkGraphNetUdpEndpoint -InputObject $O })
             $rows.Protocol | Select-Object -Unique | Should -Be 'Udp'
             $rows.State | Where-Object { $_ } | Should -BeNullOrEmpty
             $rows[2].LocalIp | Should -Be '::'
@@ -39,8 +39,8 @@ Describe 'Get-NetworkConnection' {
 
     Context 'ss through the seam' {
         BeforeAll {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'ss' }
-            Mock Resolve-NetworkGraphReverseName -ModuleName NetworkGraph { @{ '1.1.1.1' = 'one.one.one.one' } }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'ss' }
+            Mock Resolve-NetworkGraphReverseName -ModuleName Graph.Emitter.Network { @{ '1.1.1.1' = 'one.one.one.one' } }
             Set-NativeFixture -Output @{ ss = (Get-Fixture 'ss.linux.txt') }
         }
         AfterAll { Clear-NativeFixture }

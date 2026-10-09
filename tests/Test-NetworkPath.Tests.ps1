@@ -1,6 +1,6 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot 'TestSetup.ps1')
-    function ConvertPing([string]$Name) { InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture $Name) } { param($T) ConvertFrom-NetworkGraphPingOutput -Text $T } }
+    function ConvertPing([string]$Name) { InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture $Name) } { param($T) ConvertFrom-NetworkGraphPingOutput -Text $T } }
 }
 
 Describe 'Test-NetworkPath' {
@@ -36,7 +36,7 @@ Describe 'Test-NetworkPath' {
 
     Context 'native path through the seam' {
         BeforeAll {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'ping' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'ping' }
             $text = $IsWindows ? (Get-Fixture 'ping.windows.txt') : (Get-Fixture 'ping.linux.txt')
             Set-NativeFixture -Output @{ ping = $text }
         }
@@ -53,13 +53,13 @@ Describe 'Test-NetworkPath' {
     }
 
     It 'on Windows, Auto takes the .NET path even with ping.exe installed (loopback, no tool runs)' -Skip:(-not $IsWindows) {
-        Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'ping' }
+        Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'ping' }
         Set-NativeFixture -Output @{ ping = (Get-Fixture 'ping.windows.txt') }
         try {
             $row = Test-NetworkPath 127.0.0.1 -Count 1
             $row.Source | Should -BeLike '`[System.Net.NetworkInformation.Ping`]*'
             $NativeCalls.Count | Should -Be 0
-            Should -Invoke Resolve-NetworkGraphTool -ModuleName NetworkGraph -Times 0 -Exactly
+            Should -Invoke Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network -Times 0 -Exactly
         }
         finally { Clear-NativeFixture }
     }

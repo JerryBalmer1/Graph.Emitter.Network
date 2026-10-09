@@ -1,12 +1,12 @@
 # Graph shape
 
-The contract for `ConvertTo-NetworkGraph` output. Pester ("node property names equal the contract in docs/graph-shape.md", "edge property names equal the contract in docs/graph-shape.md") parses the two tables below and fails if a node or edge carries different property names, or the same names in a different order. `$script:NetworkGraphNodeContract` in `NetworkGraph.psm1` holds the same lists; `Add-NetworkGraphNode` refuses a property not in it.
+The contract for `ConvertTo-NetworkGraph` output. Pester ("node property names equal the contract in docs/graph-shape.md", "edge property names equal the contract in docs/graph-shape.md") parses the two tables below and fails if a node or edge carries different property names, or the same names in a different order. `$script:NetworkGraphNodeContract` in `Graph.Emitter.Network.psm1` holds the same lists; `Add-NetworkGraphNode` refuses a property not in it.
 
 ## Where it came from
 
 The names match what `ConvertTo-TerraformResourceGraph` in TerraformGraph (`C:\__Code\TerraformGraph\src\TerraformGraph\TerraformGraph.psm1`, 0.14.0) emits, so one renderer can draw both graphs:
 
-| TerraformGraph (ResourceGraph) | NetworkGraph (Graph) | Match |
+| TerraformGraph (ResourceGraph) | Graph.Emitter.Network (Graph) | Match |
 |---|---|---|
 | graph `Root` | graph `Root` (the Host node Id, or `$null` when no host was involved) | same name |
 | graph `Nodes` | graph `Nodes` | same name |
@@ -21,9 +21,9 @@ The names match what `ConvertTo-TerraformResourceGraph` in TerraformGraph (`C:\_
 
 Edge `Kind` values are PascalCase, as in TerraformGraph (`Contains`, `RoutesTo`, `HopsTo`, `ConnectsTo`, `OwnedBy`, `ResolvesTo`, `BelongsTo`). 0.1.0 used lower-case hyphenated kinds (`contains`, `routes-to`, ...); they were renamed on 2026-10-07 and are now compared case-sensitively, so `contains` is no longer a kind.
 
-Differences a shared renderer has to know, as of 2026-10-07. Both are TerraformGraph's to close: TerraformGraph will adopt the NetworkGraph shape, and NetworkGraph keeps both as they are.
+Differences a shared renderer has to know, as of 2026-10-07. Both are TerraformGraph's to close: TerraformGraph will adopt the Graph.Emitter.Network shape, and Graph.Emitter.Network keeps both as they are.
 
-- `Findings` is a count in TerraformGraph and a list here. Code that reads `$graph.Findings` as a number should read `FindingCount` on a NetworkGraph graph. TerraformGraph will make `Findings` the list of rows and add `FindingCount`.
+- `Findings` is a count in TerraformGraph and a list here. Code that reads `$graph.Findings` as a number should read `FindingCount` on a Graph.Emitter.Network graph. TerraformGraph will make `Findings` the list of rows and add `FindingCount`.
 - Where a node came from is `File`, `Line`, `Block` in TerraformGraph and `Source` here. TerraformGraph will add `Source`.
 - Edges carry a fourth property, `Source`, here (from 0.2.0) and none in TerraformGraph. A renderer that reads `From`, `To`, `Kind` by name is unaffected.
 

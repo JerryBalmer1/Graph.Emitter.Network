@@ -5,7 +5,7 @@ BeforeAll {
 Describe 'Get-NetworkHost' {
     Context 'firewall parsers (fixtures)' {
         It 'reads Get-NetFirewallProfile: every profile off is Disabled' {
-            $result = InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetFirewallProfile.windows.json') } { param($O) ConvertFrom-NetworkGraphNetFirewallProfile -InputObject $O }
+            $result = InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetFirewallProfile.windows.json') } { param($O) ConvertFrom-NetworkGraphNetFirewallProfile -InputObject $O }
             $result.State | Should -Be 'Disabled'
             $result.Reason | Should -Be 'Domain off, Private off, Public off'
             @($result.Profiles).Count | Should -Be 3
@@ -13,16 +13,16 @@ Describe 'Get-NetworkHost' {
 
         It 'reads a mix of profiles as Partial' {
             $mixed = @([pscustomobject]@{ Name = 'Domain'; Enabled = 'True' }, [pscustomobject]@{ Name = 'Public'; Enabled = 'False' })
-            (InModuleScope NetworkGraph -Parameters @{ O = $mixed } { param($O) ConvertFrom-NetworkGraphNetFirewallProfile -InputObject $O }).State | Should -Be 'Partial'
+            (InModuleScope Graph.Emitter.Network -Parameters @{ O = $mixed } { param($O) ConvertFrom-NetworkGraphNetFirewallProfile -InputObject $O }).State | Should -Be 'Partial'
         }
 
         It 'reads ufw status' {
-            (InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ufw.linux.txt') } { param($T) ConvertFrom-NetworkGraphUfwOutput -Text $T }).State | Should -Be 'Disabled'
-            (InModuleScope NetworkGraph { ConvertFrom-NetworkGraphUfwOutput -Text 'ERROR: You need to be root to run this script' }).State | Should -Be 'Unknown'
+            (InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'ufw.linux.txt') } { param($T) ConvertFrom-NetworkGraphUfwOutput -Text $T }).State | Should -Be 'Disabled'
+            (InModuleScope Graph.Emitter.Network { ConvertFrom-NetworkGraphUfwOutput -Text 'ERROR: You need to be root to run this script' }).State | Should -Be 'Unknown'
         }
 
         It 'reads firewall-cmd --state that could not reach firewalld as Unknown with the reason' {
-            $result = InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'firewall-cmd.linux.txt') } { param($T) ConvertFrom-NetworkGraphFirewallCmdOutput -Text $T }
+            $result = InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'firewall-cmd.linux.txt') } { param($T) ConvertFrom-NetworkGraphFirewallCmdOutput -Text $T }
             $result.State | Should -Be 'Unknown'
             $result.Reason | Should -BeLike 'firewalld: Error: DBUS_ERROR*'
         }
@@ -30,21 +30,21 @@ Describe 'Get-NetworkHost' {
 
     Context 'firewall: third-party products and ufw.conf' {
         BeforeAll {
-            Mock Get-NetworkInterface -ModuleName NetworkGraph { @() }
-            Mock Get-NetworkRoute -ModuleName NetworkGraph { @() }
+            Mock Get-NetworkInterface -ModuleName Graph.Emitter.Network { @() }
+            Mock Get-NetworkRoute -ModuleName Graph.Emitter.Network { @() }
             $script:Products = Get-FixtureJson 'FirewallProduct.windows.json'
         }
 
         It 'reads SecurityCenter2 FirewallProduct: Norton Security, productState 331776, is enabled' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = $Products } { param($O) ConvertFrom-NetworkGraphFirewallProduct -InputObject $O })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = $Products } { param($O) ConvertFrom-NetworkGraphFirewallProduct -InputObject $O })
             $rows[0].Name | Should -Be 'Norton Security'
             $rows[0].Enabled | Should -BeTrue
-            (InModuleScope NetworkGraph { ConvertFrom-NetworkGraphFirewallProduct -InputObject @([pscustomobject]@{ displayName = 'Off'; productState = 393472 }) }).Enabled | Should -BeFalse
+            (InModuleScope Graph.Emitter.Network { ConvertFrom-NetworkGraphFirewallProduct -InputObject @([pscustomobject]@{ displayName = 'Off'; productState = 393472 }) }).Enabled | Should -BeFalse
         }
 
         It 'Windows: every profile off and an enabled product registered is ThirdParty, naming it' -Skip:(-not $IsWindows) {
-            Mock Get-NetFirewallProfile -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetFirewallProfile.windows.json' }
-            Mock Get-NetworkGraphFirewallProduct -ModuleName NetworkGraph { $Products }
+            Mock Get-NetFirewallProfile -ModuleName Graph.Emitter.Network { Get-FixtureJson 'Get-NetFirewallProfile.windows.json' }
+            Mock Get-NetworkGraphFirewallProduct -ModuleName Graph.Emitter.Network { $Products }
             $result = Get-NetworkHost
             $result.Firewall | Should -Be 'ThirdParty'
             $result.FirewallReason | Should -Be 'Windows Firewall off (Domain off, Private off, Public off); Norton Security registered and enabled in Windows Security Center'
@@ -53,23 +53,23 @@ Describe 'Get-NetworkHost' {
         }
 
         It 'Windows: every profile off and no enabled product is Disabled' -Skip:(-not $IsWindows) {
-            Mock Get-NetFirewallProfile -ModuleName NetworkGraph { Get-FixtureJson 'Get-NetFirewallProfile.windows.json' }
-            Mock Get-NetworkGraphFirewallProduct -ModuleName NetworkGraph { @([pscustomobject]@{ displayName = 'Off'; productState = 393472 }) }
+            Mock Get-NetFirewallProfile -ModuleName Graph.Emitter.Network { Get-FixtureJson 'Get-NetFirewallProfile.windows.json' }
+            Mock Get-NetworkGraphFirewallProduct -ModuleName Graph.Emitter.Network { @([pscustomobject]@{ displayName = 'Off'; productState = 393472 }) }
             (Get-NetworkHost).Firewall | Should -Be 'Disabled'
         }
 
         It 'reads ufw.conf ENABLED=no and ENABLED=yes' {
             $text = Get-Fixture 'ufw.conf.linux.txt'
-            (InModuleScope NetworkGraph -Parameters @{ T = $text } { param($T) ConvertFrom-NetworkGraphUfwConf -Text $T }).State | Should -Be 'Disabled'
-            (InModuleScope NetworkGraph -Parameters @{ T = ($text -replace 'ENABLED=no', 'ENABLED=yes') } { param($T) ConvertFrom-NetworkGraphUfwConf -Text $T }).State | Should -Be 'Enabled'
-            InModuleScope NetworkGraph { ConvertFrom-NetworkGraphUfwConf -Text '# no setting' } | Should -BeNullOrEmpty
+            (InModuleScope Graph.Emitter.Network -Parameters @{ T = $text } { param($T) ConvertFrom-NetworkGraphUfwConf -Text $T }).State | Should -Be 'Disabled'
+            (InModuleScope Graph.Emitter.Network -Parameters @{ T = ($text -replace 'ENABLED=no', 'ENABLED=yes') } { param($T) ConvertFrom-NetworkGraphUfwConf -Text $T }).State | Should -Be 'Enabled'
+            InModuleScope Graph.Emitter.Network { ConvertFrom-NetworkGraphUfwConf -Text '# no setting' } | Should -BeNullOrEmpty
         }
 
         It 'Linux: reads /etc/ufw/ufw.conf before ufw status, so no root is needed' {
             $conf = Join-Path $TestDrive 'ufw.conf'
             Set-Content -LiteralPath $conf -Value (Get-Fixture 'ufw.conf.linux.txt') -NoNewline
             Set-NativeFixture -Output @{ ufw = 'ERROR: You need to be root to run this script' }
-            InModuleScope NetworkGraph -Parameters @{ Conf = $conf } { param($Conf) $script:NetworkGraphPlatform = 'Linux'; $script:NetworkGraphUfwConfPath = $Conf }
+            InModuleScope Graph.Emitter.Network -Parameters @{ Conf = $conf } { param($Conf) $script:NetworkGraphPlatform = 'Linux'; $script:NetworkGraphUfwConfPath = $Conf }
             try {
                 $result = Get-NetworkHost
                 $result.Firewall | Should -Be 'Disabled'
@@ -80,7 +80,7 @@ Describe 'Get-NetworkHost' {
             }
             finally {
                 Clear-NativeFixture
-                InModuleScope NetworkGraph { $script:NetworkGraphPlatform = $IsWindows ? 'Windows' : ($IsLinux ? 'Linux' : 'macOS'); $script:NetworkGraphUfwConfPath = '/etc/ufw/ufw.conf' }
+                InModuleScope Graph.Emitter.Network { $script:NetworkGraphPlatform = $IsWindows ? 'Windows' : ($IsLinux ? 'Linux' : 'macOS'); $script:NetworkGraphUfwConfPath = '/etc/ufw/ufw.conf' }
             }
         }
     }

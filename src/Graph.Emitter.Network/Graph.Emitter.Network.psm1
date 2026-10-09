@@ -1,4 +1,4 @@
-# NetworkGraph module root: module-scope state and wiring only. Every function lives in its own
+# Graph.Emitter.Network module root: module-scope state and wiring only. Every function lives in its own
 # file under Private\ (helpers) or Public\ (one exported function per file, Verb-Noun.ps1).
 
 # Data files. The user cache wins over the copy bundled with the module; only an Invoke-Build
@@ -76,5 +76,5 @@ Update-TypeData -TypeName 'NetworkGraph.Graph' -DefaultDisplayPropertySet Root, 
 
 Write-NetworkGraphPlatformWarning
 
-$manifest = Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot 'NetworkGraph.psd1')
+$manifest = Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot 'Graph.Emitter.Network.psd1')
 Export-ModuleMember -Function $manifest.FunctionsToExport

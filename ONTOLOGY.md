@@ -1,4 +1,4 @@
-> **NetworkGraph is an ontology layer for AI agents over what a host can see on its network.** One Id names an address in a socket, a trace, a registry row and a cloud range, and every row says which tool produced it.
+> **Graph.Emitter.Network is an ontology layer for AI agents over what a host can see on its network.** One Id names an address in a socket, a trace, a registry row and a cloud range, and every row says which tool produced it.
 
 Here for the PowerShell module, install steps and examples? Read [README.md](README.md).
 
@@ -10,7 +10,7 @@ Every address is already classified by someone whose job it is. IANA keeps the s
 
 And every host already keeps the instances. The socket table says which process talks to which address and port; the route table says which next hop carries a prefix; the neighbour table says which MAC answered for which address; ping, tracert, traceroute, mtr and pathping say which routers answered on the way. The OS keeps these correct every second, and the tools that print them are already installed.
 
-Nobody built a network ontology for a single host because nobody had to: the vocabulary and the instances were both there. What was missing was the join. NetworkGraph adds one Id for an address that holds across the socket, the trace hop, the registry row and the cloud range, a `Source` on every row that names the exact command line or data file it came from, and a graph whose node and edge shape matches TerraformGraph's, so declared infrastructure and observed infrastructure can be drawn by one renderer. The rest of this page is that join.
+Nobody built a network ontology for a single host because nobody had to: the vocabulary and the instances were both there. What was missing was the join. Graph.Emitter.Network adds one Id for an address that holds across the socket, the trace hop, the registry row and the cloud range, a `Source` on every row that names the exact command line or data file it came from, and a graph whose node and edge shape matches TerraformGraph's, so declared infrastructure and observed infrastructure can be drawn by one renderer. The rest of this page is that join.
 
 ## What this is
 
@@ -29,9 +29,9 @@ The Connection's `RemoteIp` is the RemoteHost's `Id`, which is the Hop's `Ip` an
 ## Why a host's network is an unusually good ontology source
 
 - **Typed.** An address is IPv4 or IPv6 with a prefix; a port is a number with a registered service; a MAC is six bytes whose first three name a vendor. The OS tables have fixed columns, and the better tools emit structure (`ip -j`, `mtr --json`, `nmap -oX`, cmdlet objects).
-- **Published.** The classes come from registries and vendors with URLs and publication dates: IANA, IEEE, the clouds' range files and subnet docs, RDAP. Each data file in NetworkGraph names those URLs and the date it pulled them.
-- **Observable by the tools already installed.** Nothing has to be deployed or granted: the socket, route and neighbour tables and a trace are readable by an ordinary user on Windows and Linux. NetworkGraph wraps those tools and ships no binary, so every row can be reproduced by pasting its `Source`.
-- **Already joined in practice.** A connection to 13.85.16.224 is to exactly one address, which is in or out of each registry row and each cloud prefix. NetworkGraph only has to make the edges explicit (`ConnectsTo`, `BelongsTo`, `HopsTo`, `ResolvesTo`).
+- **Published.** The classes come from registries and vendors with URLs and publication dates: IANA, IEEE, the clouds' range files and subnet docs, RDAP. Each data file in Graph.Emitter.Network names those URLs and the date it pulled them.
+- **Observable by the tools already installed.** Nothing has to be deployed or granted: the socket, route and neighbour tables and a trace are readable by an ordinary user on Windows and Linux. Graph.Emitter.Network wraps those tools and ships no binary, so every row can be reproduced by pasting its `Source`.
+- **Already joined in practice.** A connection to 13.85.16.224 is to exactly one address, which is in or out of each registry row and each cloud prefix. Graph.Emitter.Network only has to make the edges explicit (`ConnectsTo`, `BelongsTo`, `HopsTo`, `ResolvesTo`).
 
 ## What agents get
 

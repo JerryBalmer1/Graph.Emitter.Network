@@ -5,7 +5,7 @@ BeforeAll {
 Describe 'Get-NetworkRoute' {
     Context 'parsers (fixtures)' {
         It 'maps Get-NetRoute objects' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetRoute.windows.json') } { param($O) ConvertFrom-NetworkGraphNetRoute -InputObject $O })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetRoute.windows.json') } { param($O) ConvertFrom-NetworkGraphNetRoute -InputObject $O })
             $default = $rows | Where-Object Cidr -eq '0.0.0.0/0'
             "$($default.NextHop) $($default.Interface) $($default.Metric)" | Should -Be '192.168.0.1 Wi-Fi 0'
             ($rows | Where-Object Cidr -eq '192.168.0.0/24').NextHop | Should -BeNullOrEmpty
@@ -14,14 +14,14 @@ Describe 'Get-NetworkRoute' {
 
         It 'looks up each Get-NetRoute InterfaceIndex for InterfaceKey' {
             $keys = Get-TestKeyMap -Platform Windows
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetRoute.windows.json'); K = $keys } { param($O, $K) ConvertFrom-NetworkGraphNetRoute -InputObject $O -KeyMap $K })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetRoute.windows.json'); K = $keys } { param($O, $K) ConvertFrom-NetworkGraphNetRoute -InputObject $O -KeyMap $K })
             ($rows | Where-Object Cidr -eq '0.0.0.0/0').InterfaceKey | Should -Be '{00000000-0000-0000-0000-000000000016}'
             ($rows | Where-Object Cidr -eq '127.0.0.0/8').InterfaceKey | Should -Be '{00000000-0000-0000-0000-000000000001}' -Because 'the loopback pseudo-interface has a GUID in .NET though Get-NetAdapter leaves it out'
             foreach ($row in $rows) { $row.InterfaceKey | Should -Not -BeNullOrEmpty -Because "$($row.Cidr) on $($row.Interface)" }
         }
 
         It 'reads ip -j route' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ip-route.linux.json') } { param($T) ConvertFrom-NetworkGraphIpRouteJson -Text $T })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'ip-route.linux.json') } { param($T) ConvertFrom-NetworkGraphIpRouteJson -Text $T })
             $rows.Cidr | Should -Be @('0.0.0.0/0', '172.17.0.0/16')
             $rows[0].NextHop | Should -Be '172.17.0.1'
             $rows[1].NextHop | Should -BeNullOrEmpty
@@ -30,23 +30,23 @@ Describe 'Get-NetworkRoute' {
         }
 
         It 'looks up each ip -j route dev for InterfaceKey' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ip-route.linux.json'); K = (Get-TestKeyMap -Platform Linux) } { param($T, $K) ConvertFrom-NetworkGraphIpRouteJson -Text $T -KeyMap $K })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'ip-route.linux.json'); K = (Get-TestKeyMap -Platform Linux) } { param($T, $K) ConvertFrom-NetworkGraphIpRouteJson -Text $T -KeyMap $K })
             $rows.InterfaceKey | Select-Object -Unique | Should -Be '2'
         }
 
         It 'reads an empty ip -j -6 route' {
-            @(InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'ip-route6.linux.json') } { param($T) ConvertFrom-NetworkGraphIpRouteJson -Text $T -Version 6 }).Count | Should -Be 0
+            @(InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'ip-route6.linux.json') } { param($T) ConvertFrom-NetworkGraphIpRouteJson -Text $T -Version 6 }).Count | Should -Be 0
         }
     }
 
     Context 'ip through the seam' {
         BeforeAll {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'ip' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'ip' }
             $v4 = Get-Fixture 'ip-route.linux.json'
             $v6 = Get-Fixture 'ip-route6.linux.json'
             Set-NativeFixture -Output @{ ip = { param($Arguments) ($Arguments -contains '-6') ? $v6 : $v4 }.GetNewClosure() }
             $keys = Get-TestKeyMap -Platform Linux
-            Mock Get-NetworkGraphInterfaceKeyMap -ModuleName NetworkGraph { $keys }.GetNewClosure()
+            Mock Get-NetworkGraphInterfaceKeyMap -ModuleName Graph.Emitter.Network { $keys }.GetNewClosure()
         }
         AfterAll { Clear-NativeFixture }
 

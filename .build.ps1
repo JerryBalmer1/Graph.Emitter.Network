@@ -45,11 +45,11 @@ if (-not (Get-Module -ListAvailable -Name InvokeBuild)) {
 ######################################################################################################
 
 function Get-ModuleRoot {
-    Join-Path $PSScriptRoot 'src' 'NetworkGraph'
+    Join-Path $PSScriptRoot 'src' 'Graph.Emitter.Network'
 }
 
 function Get-ManifestVersion {
-    [version](Import-PowerShellDataFile -Path (Join-Path (Get-ModuleRoot) 'NetworkGraph.psd1')).ModuleVersion
+    [version](Import-PowerShellDataFile -Path (Join-Path (Get-ModuleRoot) 'Graph.Emitter.Network.psd1')).ModuleVersion
 }
 
 ######################################################################################################
@@ -57,11 +57,11 @@ function Get-ManifestVersion {
 ######################################################################################################
 
 task RemoveModule {
-    Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
+    Remove-Module Graph.Emitter.Network -Force -ErrorAction SilentlyContinue
 }
 
 task ImportModule {
-    Import-Module (Join-Path (Get-ModuleRoot) 'NetworkGraph.psd1') -Force -ErrorAction Stop
+    Import-Module (Join-Path (Get-ModuleRoot) 'Graph.Emitter.Network.psd1') -Force -ErrorAction Stop
 }
 
 # Pester in a fresh process, so no module state from this shell leaks into the run.
@@ -84,18 +84,18 @@ task Analyze {
     }
 }
 
-# One-file module in dist/NetworkGraph/<version>: the psm1 region that dot-sources Private/ and
+# One-file module in dist/Graph.Emitter.Network/<version>: the psm1 region that dot-sources Private/ and
 # Public/ is replaced with their contents; manifest, data, skills, LICENSE and NOTICE are copied as is.
 task Assemble {
     $root = Get-ModuleRoot
     $version = Get-ManifestVersion
-    $out = Join-Path $PSScriptRoot 'dist' 'NetworkGraph' $version
+    $out = Join-Path $PSScriptRoot 'dist' 'Graph.Emitter.Network' $version
     if (Test-Path $out) { Remove-Item $out -Recurse -Force }
     $null = New-Item -ItemType Directory -Path $out -Force
 
-    $psm1 = Get-Content -Raw (Join-Path $root 'NetworkGraph.psm1')
+    $psm1 = Get-Content -Raw (Join-Path $root 'Graph.Emitter.Network.psm1')
     $pattern = '(?s)#region functions.*?#endregion functions'
-    if ($psm1 -notmatch $pattern) { throw 'NetworkGraph.psm1 has no #region functions block to replace.' }
+    if ($psm1 -notmatch $pattern) { throw 'Graph.Emitter.Network.psm1 has no #region functions block to replace.' }
     $body = [System.Text.StringBuilder]::new()
     foreach ($folder in 'Private', 'Public') {
         foreach ($file in Get-ChildItem -Path (Join-Path $root $folder) -Filter '*.ps1' -File | Sort-Object Name) {
@@ -103,18 +103,18 @@ task Assemble {
         }
     }
     $assembled = [regex]::Replace($psm1, $pattern, { param($m) $body.ToString().TrimEnd() })
-    [System.IO.File]::WriteAllText((Join-Path $out 'NetworkGraph.psm1'), $assembled, [System.Text.UTF8Encoding]::new($false))
-    Copy-Item (Join-Path $root 'NetworkGraph.psd1') $out
+    [System.IO.File]::WriteAllText((Join-Path $out 'Graph.Emitter.Network.psm1'), $assembled, [System.Text.UTF8Encoding]::new($false))
+    Copy-Item (Join-Path $root 'Graph.Emitter.Network.psd1') $out
     Copy-Item (Join-Path $root 'data') $out -Recurse
     Copy-Item (Join-Path $root 'skills') $out -Recurse
     Copy-Item (Join-Path $PSScriptRoot 'LICENSE'), (Join-Path $PSScriptRoot 'NOTICE') $out
 
-    exec { pwsh -NoProfile -Command "`$m = Import-Module '$out\NetworkGraph.psd1' -PassThru -ErrorAction Stop; '{0} {1}: {2} commands' -f `$m.Name, `$m.Version, `$m.ExportedFunctions.Count" }
+    exec { pwsh -NoProfile -Command "`$m = Import-Module '$out\Graph.Emitter.Network.psd1' -PassThru -ErrorAction Stop; '{0} {1}: {2} commands' -f `$m.Name, `$m.Version, `$m.ExportedFunctions.Count" }
     Write-Host "Assembled $out"
 }
 
 # Harvest into the user cache with Update-NetworkGraphData, then promote the harvested files to
-# src/NetworkGraph/data. The only path by which harvested data reaches src/. Network.
+# src/Graph.Emitter.Network/data. The only path by which harvested data reaches src/. Network.
 task UpdateData RemoveModule, ImportModule, {
     $rows = @(Update-NetworkGraphData -Kind $Kind -PassThru -ErrorAction Stop)
     $target = Join-Path (Get-ModuleRoot) 'data'
@@ -122,7 +122,7 @@ task UpdateData RemoveModule, ImportModule, {
         Copy-Item -LiteralPath $row.Path -Destination (Join-Path $target $row.File) -Force
         Write-Host ('{0,-12} {1,-22} {2,10:n0} bytes {3,7:n0} entries pulled {4}' -f $row.Kind, $row.File, $row.Bytes, $row.Entries, $row.Pulled)
     }
-    exec { git -C $PSScriptRoot --no-pager diff --stat -- src/NetworkGraph/data }
+    exec { git -C $PSScriptRoot --no-pager diff --stat -- src/Graph.Emitter.Network/data }
 }
 
 # Every bundled data file: has sources with a url and a pulled date, and is no older than its

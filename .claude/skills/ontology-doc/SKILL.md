@@ -1,6 +1,6 @@
 ---
 name: ontology-doc
-description: Keep ONTOLOGY.md, the agent and ontology door to NetworkGraph, in step with the code. Use whenever the Id scheme, a node or edge kind, a finding kind, a terminating error id, a typed row or its Source, a bundled data shape (the data/ files and their sources), or a planned ontology feature changes.
+description: Keep ONTOLOGY.md, the agent and ontology door to Graph.Emitter.Network, in step with the code. Use whenever the Id scheme, a node or edge kind, a finding kind, a terminating error id, a typed row or its Source, a bundled data shape (the data/ files and their sources), or a planned ontology feature changes.
 ---
 
 # ONTOLOGY.md
@@ -15,7 +15,7 @@ In the same task as any change to:
 - a finding kind (`$script:NetworkGraphFindingKinds`: `SubnetOverlap`, `BelowCloudMinimum`, `NonCloudPublicConnection`, `WildcardListener`, `RouteWithoutInterface`)
 - a terminating error id (`FullyQualifiedErrorId`) the "What agents get" section lists, or a new one an agent would branch on
 - what an observe command puts in `Source`, or which tool `-Tool Auto` picks on a platform
-- the shape or provenance fields of bundled data: any file in `src/NetworkGraph/data/` (`formatVersion`, `kind`, `maxAgeDays`, `pulled`, `sources`), or a new data kind
+- the shape or provenance fields of bundled data: any file in `src/Graph.Emitter.Network/data/` (`formatVersion`, `kind`, `maxAgeDays`, `pulled`, `sources`), or a new data kind
 - a shape difference from TerraformGraph closing or opening (docs/graph-shape.md "Where it came from")
 - a "Not here yet" item shipping, slipping or changing target version
 
@@ -26,13 +26,13 @@ In the same task as any change to:
 - Terminology names match exported names exactly. The "In the module" column holds only backticked names of three kinds: an exported command (`Get-NetworkGraphData`), a typed object or one of its properties (`NetworkGraph.IPAddressInfo.CloudPrefix`; `NetworkGraph.Node.<property>` resolves against the graph contract), or a data file path relative to the module or repo root (`data/cloud-ranges.json.gz`). Pester ("resolves every term in ONTOLOGY.md's terminology table") resolves every one and fails on anything else, so rename the table in the same task as the code. No `|` inside a cell, even in backticks: it splits the row.
 - The term list is Id, node, edge, finding, graph, row, Source, tool, data file, sources, reservation, cloud range, in that order. Adding a term means updating the Pester expectation in the same task.
 - Facts versus opinions: tool output, the IANA and IEEE registries, the clouds' published ranges and reservation rules, and RDAP answers are facts; `data/ip-sources.json`, the finding rules and the `-Tool Auto` choices (docs/design.md) are opinions held as data or code with reasons. A new data file goes in one list or the other, never both.
-- Every claim about errors, network access or provenance must be true of the current code. Check the error id with `Select-String -Path .\src\NetworkGraph\Private\*.ps1, .\src\NetworkGraph\Public\*.ps1` and run the command to see its `FullyQualifiedErrorId` before naming it; say plainly which errors have no id yet.
+- Every claim about errors, network access or provenance must be true of the current code. Check the error id with `Select-String -Path .\src\Graph.Emitter.Network\Private\*.ps1, .\src\Graph.Emitter.Network\Public\*.ps1` and run the command to see its `FullyQualifiedErrorId` before naming it; say plainly which errors have no id yet.
 - The graph shape stays compatible with TerraformGraph's so one renderer draws both. If a change would open a new difference, record it in docs/graph-shape.md and in "What agents get" and report it; never change either module's shape silently to make them agree.
 - Dense, plain sentences. No marketing words. A table beats a paragraph.
 
 ## Procedure
 
-1. Read the change (the files named for the functions that changed, docs/graph-shape.md, the psm1 contract tables, the data file) and the current ONTOLOGY.md. Function code is one function per file, named for the function: `src/NetworkGraph/Public/<Verb-Noun>.ps1` for an exported command, `src/NetworkGraph/Private/<Verb-Noun>.ps1` for a helper. Edit the file named for the function, never `NetworkGraph.psm1`: it is state and wiring only, and `Invoke-Build Assemble` builds the single psm1 that ships.
+1. Read the change (the files named for the functions that changed, docs/graph-shape.md, the psm1 contract tables, the data file) and the current ONTOLOGY.md. Function code is one function per file, named for the function: `src/Graph.Emitter.Network/Public/<Verb-Noun>.ps1` for an exported command, `src/Graph.Emitter.Network/Private/<Verb-Noun>.ps1` for a helper. Edit the file named for the function, never `Graph.Emitter.Network.psm1`: it is state and wiring only, and `Invoke-Build Assemble` builds the single psm1 that ships.
 2. Edit the affected sections. Keep the banner and backlink first.
 3. Run the two Ontology tests in a fresh process: `pwsh -NoProfile -Command "Invoke-Pester -Path .\tests\Module.Tests.ps1 -FullNameFilter 'Ontology*' -CI"`.
 4. Stage ONTOLOGY.md. Do not commit.

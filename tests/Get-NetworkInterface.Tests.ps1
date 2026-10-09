@@ -5,7 +5,7 @@ BeforeAll {
 Describe 'Get-NetworkInterface' {
     Context 'parsers (fixtures)' {
         It 'maps Get-NetIPConfiguration (flattened) objects' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetIPConfiguration.windows.json') } { param($O) ConvertFrom-NetworkGraphNetIPConfiguration -InputObject $O })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetIPConfiguration.windows.json') } { param($O) ConvertFrom-NetworkGraphNetIPConfiguration -InputObject $O })
             $wifi = $rows | Where-Object Name -eq 'Wi-Fi'
             $wifi.Status | Should -Be 'Up'
             $wifi.Ip | Should -Be @('192.168.0.6')
@@ -17,14 +17,14 @@ Describe 'Get-NetworkInterface' {
         }
 
         It 'keys each Get-NetIPConfiguration interface on its InterfaceGuid, not its alias' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetIPConfiguration.windows.json') } { param($O) ConvertFrom-NetworkGraphNetIPConfiguration -InputObject $O })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetIPConfiguration.windows.json') } { param($O) ConvertFrom-NetworkGraphNetIPConfiguration -InputObject $O })
             ($rows | Where-Object Name -eq 'Wi-Fi').InterfaceKey | Should -Be '{00000000-0000-0000-0000-000000000016}'
             foreach ($row in $rows) { $row.InterfaceKey | Should -Match '^\{[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$' -Because $row.Name }
             @($rows.InterfaceKey | Select-Object -Unique).Count | Should -Be $rows.Count
         }
 
         It 'reads ip -j addr with gateways from ip -j route and DNS from resolv.conf' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ A = (Get-Fixture 'ip-addr.linux.json'); R = (Get-Fixture 'ip-route.linux.json'); D = (Get-Fixture 'resolv.conf.linux.txt') } {
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ A = (Get-Fixture 'ip-addr.linux.json'); R = (Get-Fixture 'ip-route.linux.json'); D = (Get-Fixture 'resolv.conf.linux.txt') } {
                     param($A, $R, $D) ConvertFrom-NetworkGraphIpAddrJson -Text $A -RouteText $R -ResolvConf $D })
             $rows.Name | Should -Be @('lo', 'eth0')
             $rows[0].MacAddress | Should -BeNullOrEmpty
@@ -40,9 +40,9 @@ Describe 'Get-NetworkInterface' {
 
     Context 'Get-NetIPConfiguration through a mock' -Skip:(-not $IsWindows) {
         It 'names the cmdlet in Source, looks up the vendor and carries InterfaceKey' {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'Get-NetIPConfiguration' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'Get-NetIPConfiguration' }
             $fixture = Get-FixtureJson 'Get-NetIPConfiguration.windows.json'
-            Mock Get-NetworkGraphNetIPConfiguration -ModuleName NetworkGraph { $fixture }.GetNewClosure()
+            Mock Get-NetworkGraphNetIPConfiguration -ModuleName Graph.Emitter.Network { $fixture }.GetNewClosure()
             $row = Get-NetworkInterface 'Wi-*'
             $row.Vendor | Should -Be 'Intel Corporate'
             $row.InterfaceKey | Should -Be '{00000000-0000-0000-0000-000000000016}'

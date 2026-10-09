@@ -11,7 +11,7 @@ Describe 'Update-NetworkGraphData' {
             'https://standards-oui.ieee.org/oui/oui.csv'                                                    = "Registry,Assignment,Organization Name,Organization Address`nMA-L,00155D,Microsoft Corporation,One Microsoft Way`n"
         }
         $table = $WebFixture
-        InModuleScope NetworkGraph -Parameters @{ Table = $table } {
+        InModuleScope Graph.Emitter.Network -Parameters @{ Table = $table } {
             param($Table)
             $script:NetworkGraphWebInvoker = { param($Uri) [pscustomobject]@{ Uri = $Uri; StatusCode = 200; Content = $Table[$Uri] } }.GetNewClosure()
         }

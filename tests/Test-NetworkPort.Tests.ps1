@@ -5,14 +5,14 @@ BeforeAll {
 Describe 'Test-NetworkPort' {
     Context 'parsers (fixtures)' {
         It 'reads nc -zv results' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ T = (Get-Fixture 'nc.linux.txt') } { param($T) ConvertFrom-NetworkGraphNcOutput -Text $T })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ T = (Get-Fixture 'nc.linux.txt') } { param($T) ConvertFrom-NetworkGraphNcOutput -Text $T })
             $rows.Count | Should -Be 2
             "$($rows[0].Ip):$($rows[0].Port) $($rows[0].Open)" | Should -Be '1.1.1.1:443 True'
             "$($rows[1].Ip):$($rows[1].Port) $($rows[1].Open)" | Should -Be '127.0.0.1:9 False'
         }
 
         It 'maps Test-NetConnection objects' {
-            $rows = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Test-NetConnection.windows.json') } { param($O) ConvertFrom-NetworkGraphTestNetConnection -InputObject $O })
+            $rows = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Test-NetConnection.windows.json') } { param($O) ConvertFrom-NetworkGraphTestNetConnection -InputObject $O })
             $rows.Open | Should -Be @($true, $false)
             $rows.Port | Should -Be @(443, 9)
         }
@@ -20,7 +20,7 @@ Describe 'Test-NetworkPort' {
 
     Context 'native path through the seam' {
         BeforeAll {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'nc' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'nc' }
             Set-NativeFixture -Output @{ nc = { param($Arguments) ($Arguments[-1] -eq '443') ? 'Connection to 1.1.1.1 443 port [tcp/*] succeeded!' : 'nc: connect to 1.1.1.1 port 81 (tcp) failed: Connection refused' } }
         }
         AfterAll { Clear-NativeFixture }
@@ -53,11 +53,11 @@ Describe 'Test-NetworkPort' {
         }
 
         It 'Auto uses the .NET TcpClient path even when the native tool is installed' {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { $IsWindows ? 'Test-NetConnection' : 'nc' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { $IsWindows ? 'Test-NetConnection' : 'nc' }
             $row = Test-NetworkPort 127.0.0.1 -Port $OpenPort -Timeout 2000
             $row.Open | Should -BeTrue
             $row.Source | Should -BeLike '*TcpClient*ConnectAsync*'
-            Should -Invoke Resolve-NetworkGraphTool -ModuleName NetworkGraph -Times 0 -Exactly
+            Should -Invoke Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network -Times 0 -Exactly
         }
 
         It 'does not report a closed UDP port open' {
@@ -66,7 +66,7 @@ Describe 'Test-NetworkPort' {
     }
 
     It 'times each connect from its own start: a slow port 2 does not add to port 1''s LatencyMs' {
-        $rows = InModuleScope NetworkGraph {
+        $rows = InModuleScope Graph.Emitter.Network {
             # A fake connect: nothing is sent; port 2 takes 50 ms to start, both succeed.
             $script:NetworkGraphTcpConnector = {
                 param($Client, $Address, $Port)

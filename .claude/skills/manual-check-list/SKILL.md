@@ -12,7 +12,7 @@ description: Maintain manual-check-list.md at the repo root, the paste-and-verif
 In the same task as any change to:
 - an exported function (add, rename, remove)
 - a parameter, parameter set, alias, default value, or ValidateSet (including `-Tool Auto|Native|DotNet` and which path Auto takes on a platform)
-- default display properties (Update-TypeData in `NetworkGraph.psm1`)
+- default display properties (Update-TypeData in `Graph.Emitter.Network.psm1`)
 - an example in comment-based help or README
 
 If the task touches none of these, leave the file alone. Never update it in a separate task; the checklist and the code land together.
@@ -20,7 +20,7 @@ If the task touches none of these, leave the file alone. Never update it in a se
 ## File layout
 
 ```
-# NetworkGraph manual check list
+# Graph.Emitter.Network manual check list
 
 Module version: <ModuleVersion from psd1>
 Last updated: <YYYY-MM-DD>
@@ -56,9 +56,9 @@ Every item has exactly these parts, in this order:
 The Mask parameter set: an address and a dotted mask.
 
 ```powershell
-Set-Location 'C:\__Code\NetworkGraph'
-Remove-Module NetworkGraph -Force -ErrorAction SilentlyContinue
-Import-Module .\src\NetworkGraph\NetworkGraph.psd1 -Force
+Set-Location 'C:\__Code\Graph.Emitter.Network'
+Remove-Module Graph.Emitter.Network -Force -ErrorAction SilentlyContinue
+Import-Module .\src\Graph.Emitter.Network\Graph.Emitter.Network.psd1 -Force
 Get-Subnet -Address 192.168.1.77 -Mask 255.255.255.192 | Format-List Cidr, FirstUsable, LastUsable, Usable
 ```
 
@@ -68,9 +68,9 @@ Pester: "takes -Address with -PrefixLength or -Mask"
 ```
 
 Rules:
-- The code block is self-contained and runs in the shell it is pasted into. Its first three lines are the setup lines above, `Set-Location 'C:\__Code\NetworkGraph'` first, then `Remove-Module` and `Import-Module ... -Force` from `src`, so it works from any shell and can never resolve to an installed NetworkGraph module. No item depends on a previous item having run.
+- The code block is self-contained and runs in the shell it is pasted into. Its first three lines are the setup lines above, `Set-Location 'C:\__Code\Graph.Emitter.Network'` first, then `Remove-Module` and `Import-Module ... -Force` from `src`, so it works from any shell and can never resolve to an installed Graph.Emitter.Network module. No item depends on a previous item having run.
 - Never wrap a block in `pwsh -Command { ... }`. Pasted into an interactive console, the scriptblock form runs and prints nothing, so the item looks like it passed; it only prints when the parent's output is redirected, which is how an agent runs it, so the agent sees output the person never will. If an item genuinely needs a child process (it changes PATH or another environment variable, or needs an exit code), use the string form (`pwsh -NoProfile -Command "..."`) or write the body to a temp `.ps1` with a single-quoted here-string and run `pwsh -NoProfile -File` on it, and remove the temp file in a `finally`. Either way, restore every environment variable the item changes in a `finally`.
-- A fresh process per item is needed only when something survives `Import-Module -Force` (TerraformGraph's P/Invoke pins its Go DLL in the process). NetworkGraph is pure PowerShell with no DLL, so nothing does; say so in CLAUDE.md rather than adding a wrapper.
+- A fresh process per item is needed only when something survives `Import-Module -Force` (TerraformGraph's P/Invoke pins its Go DLL in the process). Graph.Emitter.Network is pure PowerShell with no DLL, so nothing does; say so in CLAUDE.md rather than adding a wrapper.
 - Format inside the block (`Format-Table`, `Format-List`, or a `'{0} {1}' -f` line) so the screen shows what the Expect describes.
 - Expect is one or two sentences describing what appears on screen: counts, property names, a specific value, or the exact error text. Not "it works". Observe output depends on the machine: give the shape and an example ("a line like `Rows 66, ...`"), never a host name, a public address or a MAC from your machine (the fixture scrub rule in CLAUDE.md applies to Expect lines too).
 - Say which tool produced an observe item's output (the `Source` line), and when an item needs network access say so in its purpose line. If you could not run it, its Expect line is exactly `Expect: not run: needs network`, never invented output. Say what the item shows when a tool is missing (no nmap, no dig) if that changes the output.
@@ -81,7 +81,7 @@ Rules:
 ## Procedure
 
 1. Read manual-check-list.md and the current psd1 FunctionsToExport.
-2. For each function you added or changed, read its parameter block and help examples from the file named for it. Function code is one function per file, named for the function: `src/NetworkGraph/Public/<Verb-Noun>.ps1` for an exported command, `src/NetworkGraph/Private/<Verb-Noun>.ps1` for a helper. Edit the file named for the function, never `NetworkGraph.psm1`: it is state and wiring only, and `Invoke-Build Assemble` builds the single psm1 that ships.
+2. For each function you added or changed, read its parameter block and help examples from the file named for it. Function code is one function per file, named for the function: `src/Graph.Emitter.Network/Public/<Verb-Noun>.ps1` for an exported command, `src/Graph.Emitter.Network/Private/<Verb-Noun>.ps1` for a helper. Edit the file named for the function, never `Graph.Emitter.Network.psm1`: it is state and wiring only, and `Invoke-Build Assemble` builds the single psm1 that ships.
 3. Add or edit items. Run every block you add or edit exactly as written (save it to a temp `.ps1` and run `pwsh -NoProfile -File` on it) and confirm the output matches Expect before writing it down. Fix the Expect line, not the output. Running it that way does not catch a block that is silent when pasted into a console (see the `pwsh -Command { ... }` rule above), so check the block against that rule too.
 4. Update Module version and Last updated at the top, and the "Verified for" line with what you ran and on which OS.
 5. Stage the file. Do not commit.

@@ -1,12 +1,12 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot 'TestSetup.ps1')
     $script:PublicFiles = @(Get-ChildItem -Path (Join-Path $ModuleRoot 'Public') -Filter '*.ps1')
-    $script:Manifest = Import-PowerShellDataFile -Path (Join-Path $ModuleRoot 'NetworkGraph.psd1')
+    $script:Manifest = Import-PowerShellDataFile -Path (Join-Path $ModuleRoot 'Graph.Emitter.Network.psd1')
 }
 
 Describe 'Module' {
-    It 'is version 0.2.0 and needs PowerShell 7.4' {
-        $Manifest.ModuleVersion | Should -Be '0.2.0'
+    It 'is version 0.3.0 and needs PowerShell 7.4' {
+        $Manifest.ModuleVersion | Should -Be '0.3.0'
         $Manifest.PowerShellVersion | Should -Be '7.4'
     }
 
@@ -30,7 +30,7 @@ Describe 'Module' {
 
     It 'psd1 exports match Public/' {
         @($Manifest.FunctionsToExport | Sort-Object) | Should -Be @($PublicFiles.BaseName | Sort-Object)
-        @((Get-Module NetworkGraph).ExportedFunctions.Keys | Sort-Object) | Should -Be @($PublicFiles.BaseName | Sort-Object)
+        @((Get-Module Graph.Emitter.Network).ExportedFunctions.Keys | Sort-Object) | Should -Be @($PublicFiles.BaseName | Sort-Object)
     }
 
     It 'exports 23 functions in three groups by noun' {
@@ -42,7 +42,7 @@ Describe 'Module' {
     }
 
     It 'warns once at import on macOS that it is untested, and not on Windows or Linux' {
-        $warnings = InModuleScope NetworkGraph {
+        $warnings = InModuleScope Graph.Emitter.Network {
             $saved = $script:NetworkGraphPlatform
             try {
                 foreach ($platform in 'macOS', 'Windows', 'Linux') {
@@ -53,8 +53,8 @@ Describe 'Module' {
             finally { $script:NetworkGraphPlatform = $saved }
         }
         @($warnings).Count | Should -Be 1
-        $warnings | Should -BeLike 'macOS: NetworkGraph is untested on macOS*'
-        (Get-Content -Raw (Join-Path $ModuleRoot 'NetworkGraph.psm1')) | Should -Match '(?m)^Write-NetworkGraphPlatformWarning\s*$'
+        $warnings | Should -BeLike 'macOS: Graph.Emitter.Network is untested on macOS*'
+        (Get-Content -Raw (Join-Path $ModuleRoot 'Graph.Emitter.Network.psm1')) | Should -Match '(?m)^Write-NetworkGraphPlatformWarning\s*$'
     }
 
     It 'ships no binaries' {
@@ -143,7 +143,7 @@ Describe 'Fixture scrubbing (CLAUDE.md, "Fixture scrub rule")' {
         # address, and no other fixture may hold any address in the network the registry returned.
         $rdap = Get-Fixture 'rdap-arin.json' | ConvertFrom-Json -AsHashtable
         $script:RdapQueried = @($rdap['links'] | ForEach-Object { ($_['value'] -split '/ip/')[-1] } | Select-Object -Unique)
-        $script:HostNetwork = InModuleScope NetworkGraph -Parameters @{ Start = $rdap['startAddress']; End = $rdap['endAddress'] } {
+        $script:HostNetwork = InModuleScope Graph.Emitter.Network -Parameters @{ Start = $rdap['startAddress']; End = $rdap['endAddress'] } {
             param($Start, $End)
             [pscustomobject]@{ First = (ConvertTo-NetworkGraphIpValue -Ip $Start).Value; Last = (ConvertTo-NetworkGraphIpValue -Ip $End).Value }
         }
@@ -157,7 +157,7 @@ Describe 'Fixture scrubbing (CLAUDE.md, "Fixture scrub rule")' {
             foreach ($match in [regex]::Matches($text, '(?<![\d.])\d{1,3}(?:\.\d{1,3}){3}(?![\d.])')) {
                 $ip = $null
                 if (-not [System.Net.IPAddress]::TryParse($match.Value, [ref]$ip)) { continue }
-                $value = InModuleScope NetworkGraph -Parameters @{ Ip = $match.Value } { param($Ip) (ConvertTo-NetworkGraphIpValue -Ip $Ip).Value }
+                $value = InModuleScope Graph.Emitter.Network -Parameters @{ Ip = $match.Value } { param($Ip) (ConvertTo-NetworkGraphIpValue -Ip $Ip).Value }
                 ($value -ge $HostNetwork.First -and $value -le $HostNetwork.Last) | Should -BeFalse -Because "$($file.Name) holds $($match.Value), inside the capturing host's network"
             }
         }
@@ -219,7 +219,7 @@ Describe 'Native results are checked in one place (Invoke-NetworkGraphNative -Ok
     }
 
     It 'a timed-out tool throws with the command line and nothing is parsed' {
-        InModuleScope NetworkGraph {
+        InModuleScope Graph.Emitter.Network {
             $script:NetworkGraphNativeInvoker = { param($FilePath, $ArgumentList) [pscustomobject]@{ ExitCode = $null; Output = 'partial'; Error = ''; TimedOut = $true } }
             try { { Invoke-NetworkGraphNative -FilePath ss -ArgumentList '-tunap' -TimeoutSec 5 -OkExitCodes 0 } | Should -Throw '*timed out after 5 s*Command: ss -tunap*' }
             finally { $script:NetworkGraphNativeInvoker = $null }
@@ -245,7 +245,7 @@ Describe 'Native results are checked in one place (Invoke-NetworkGraphNative -Ok
         @{ Name = 'Invoke-NetworkScan (nmap)'; Tool = 'nmap'; Run = { Invoke-NetworkScan 192.0.2.1 -Port 80 -Tool Native } }
     ) {
         BeforeAll {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph -MockWith ([scriptblock]::Create("'$Tool'"))
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network -MockWith ([scriptblock]::Create("'$Tool'"))
             Set-NativeFixture -Output @{ $Tool = '' } -ExitCode @{ $Tool = 2 } -ErrorText @{ $Tool = "simulated $Tool failure: bad option" }
         }
         AfterAll { Clear-NativeFixture }
@@ -283,29 +283,29 @@ Describe 'Text parsers refuse output they do not recognise' {
     ) {
         $header = Get-Header $Fixture $UpTo
         $header.Trim() | Should -Not -BeNullOrEmpty
-        { InModuleScope NetworkGraph -Parameters @{ P = $Parser; T = $header } { param($P, $T) & $P -Text $T } } |
+        { InModuleScope Graph.Emitter.Network -Parameters @{ P = $Parser; T = $header } { param($P, $T) & $P -Text $T } } |
             Should -Throw '*output not recognised (non-English locale?); use -Tool DotNet*'
         # The whole fixture still parses.
-        @(InModuleScope NetworkGraph -Parameters @{ P = $Parser; T = (Get-Fixture $Fixture) } { param($P, $T) & $P -Text $T }).Count | Should -BeGreaterThan 0
+        @(InModuleScope Graph.Emitter.Network -Parameters @{ P = $Parser; T = (Get-Fixture $Fixture) } { param($P, $T) & $P -Text $T }).Count | Should -BeGreaterThan 0
     }
 
     It 'dig: a fixture line cut to its first two fields throws; ss: a header with no sockets is a genuine empty table' {
         $digLine = ((Get-Fixture 'dig.linux.txt') -split "`r?`n")[0] -split '\s+' | Select-Object -First 2
-        { InModuleScope NetworkGraph -Parameters @{ T = ($digLine -join "`t") } { param($T) ConvertFrom-NetworkGraphDigOutput -Text $T } } | Should -Throw '*dig output not recognised*'
+        { InModuleScope Graph.Emitter.Network -Parameters @{ T = ($digLine -join "`t") } { param($T) ConvertFrom-NetworkGraphDigOutput -Text $T } } | Should -Throw '*dig output not recognised*'
         $ssHeader = ((Get-Fixture 'ss.linux.txt') -split "`r?`n")[0]
-        @(InModuleScope NetworkGraph -Parameters @{ T = $ssHeader } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T }).Count | Should -Be 0
+        @(InModuleScope Graph.Emitter.Network -Parameters @{ T = $ssHeader } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T }).Count | Should -Be 0
         $ssCut = (((Get-Fixture 'ss.linux.txt') -split "`r?`n")[1] -split '\s+' | Select-Object -First 3) -join ' '
-        { InModuleScope NetworkGraph -Parameters @{ T = $ssCut } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T } } | Should -Throw '*ss output not recognised*'
+        { InModuleScope Graph.Emitter.Network -Parameters @{ T = $ssCut } { param($T) ConvertFrom-NetworkGraphSsOutput -Text $T } } | Should -Throw '*ss output not recognised*'
     }
 
     It 'an exit code the caller declared as an answer (ping 1 = no reply) is not a parse failure' {
         $header = Get-Header 'ping.windows.txt' '^Reply from'
-        { InModuleScope NetworkGraph -Parameters @{ T = $header } { param($T) ConvertFrom-NetworkGraphPingOutput -Text $T -ExitCode 1 } } | Should -Not -Throw
+        { InModuleScope Graph.Emitter.Network -Parameters @{ T = $header } { param($T) ConvertFrom-NetworkGraphPingOutput -Text $T -ExitCode 1 } } | Should -Not -Throw
     }
 
     It 'native tools run with LC_ALL=C and LANG=C off Windows' -Skip:$IsWindows {
         # pwsh is the test runner itself, not a network tool.
-        $run = InModuleScope NetworkGraph { Invoke-NetworkGraphNative -FilePath pwsh -ArgumentList '-NoProfile', '-Command', '"$env:LC_ALL|$env:LANG"' -OkExitCodes 0 }
+        $run = InModuleScope Graph.Emitter.Network { Invoke-NetworkGraphNative -FilePath pwsh -ArgumentList '-NoProfile', '-Command', '"$env:LC_ALL|$env:LANG"' -OkExitCodes 0 }
         $run.Output.Trim() | Should -Be 'C|C'
     }
 }
@@ -331,9 +331,9 @@ Describe 'Ontology' {
                 foreach ($key in $hashtable.KeyValuePairs) { $null = $typed[$typeName].Add($key.Item1.Extent.Text.Trim('''', '"')) }
             }
         }
-        $contract = InModuleScope NetworkGraph { $script:NetworkGraphNodeContract }
+        $contract = InModuleScope Graph.Emitter.Network { $script:NetworkGraphNodeContract }
         foreach ($name in @($contract.Values | ForEach-Object { $_ }) + 'Source') { $null = $typed['NetworkGraph.Node'].Add($name) }
-        $exported = @((Get-Module NetworkGraph).ExportedFunctions.Keys)
+        $exported = @((Get-Module Graph.Emitter.Network).ExportedFunctions.Keys)
 
         foreach ($row in $rows) {
             $names = @([regex]::Matches($row.Names, '`([^`]+)`') | ForEach-Object { $_.Groups[1].Value })

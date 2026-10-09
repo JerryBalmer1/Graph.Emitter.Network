@@ -10,11 +10,11 @@ Describe 'Test-IPAddress' {
         # carries (asserted below).
         $failures = foreach ($row in ($SpecialRows | Where-Object { $_['cidr'] -ne '::ffff:0:0/96' })) {
             # An address in the row that no more specific row covers: its last, first or second.
-            $prefix = InModuleScope NetworkGraph -Parameters @{ Cidr = $row['cidr'] } { param($Cidr) Resolve-NetworkGraphPrefix -Cidr $Cidr }
+            $prefix = InModuleScope Graph.Emitter.Network -Parameters @{ Cidr = $row['cidr'] } { param($Cidr) Resolve-NetworkGraphPrefix -Cidr $Cidr }
             $candidates = @($prefix.Last, $prefix.Network, ($prefix.Network + 1)) | Where-Object { $_ -le $prefix.Last }
             $hit = $null
             foreach ($value in $candidates) {
-                $ip = InModuleScope NetworkGraph -Parameters @{ V = $value; Version = $prefix.Version } { param($V, $Version) ConvertFrom-NetworkGraphIpValue -Value $V -Version $Version }
+                $ip = InModuleScope Graph.Emitter.Network -Parameters @{ V = $value; Version = $prefix.Version } { param($V, $Version) ConvertFrom-NetworkGraphIpValue -Value $V -Version $Version }
                 $result = Test-IPAddress $ip
                 if ($result.SpecialUse -eq $row['name'] -and $result.Source -eq $row['rfc']) { $hit = $result; break }
             }

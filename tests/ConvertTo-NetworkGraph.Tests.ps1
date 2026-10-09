@@ -106,11 +106,11 @@ Describe 'ConvertTo-NetworkGraph' {
     Context 'Interface and Route Ids (stable keys)' {
         BeforeAll {
             # Windows fixtures captured together: interfaces, routes, and the key lookup.
-            $script:WinInterfaces = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetIPConfiguration.windows.json') } {
+            $script:WinInterfaces = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetIPConfiguration.windows.json') } {
                     param($O)
                     foreach ($row in ConvertFrom-NetworkGraphNetIPConfiguration -InputObject $O) { $row.PSObject.TypeNames.Insert(0, 'NetworkGraph.Interface'); $row | Add-Member Source 'Get-NetIPConfiguration -All' -PassThru }
                 })
-            $script:WinRoutes = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetRoute.windows.json'); K = (Get-TestKeyMap -Platform Windows) } {
+            $script:WinRoutes = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetRoute.windows.json'); K = (Get-TestKeyMap -Platform Windows) } {
                     param($O, $K)
                     foreach ($row in ConvertFrom-NetworkGraphNetRoute -InputObject $O -KeyMap $K) { $row.PSObject.TypeNames.Insert(0, 'NetworkGraph.Route'); $row | Add-Member Source "Get-NetRoute; $($K.Source)" -PassThru }
                 })
@@ -130,7 +130,7 @@ Describe 'ConvertTo-NetworkGraph' {
 
         It 'an interface whose alias was renamed keeps its Id (same key, different alias)' {
             # The same capture with the Wi-Fi alias changed, as Rename-NetAdapter would leave it.
-            $renamed = @(InModuleScope NetworkGraph -Parameters @{ O = (Get-FixtureJson 'Get-NetIPConfiguration.windows.json') } {
+            $renamed = @(InModuleScope Graph.Emitter.Network -Parameters @{ O = (Get-FixtureJson 'Get-NetIPConfiguration.windows.json') } {
                     param($O)
                     foreach ($item in $O) { if ($item.InterfaceAlias -eq 'Wi-Fi') { $item.InterfaceAlias = 'Office Wireless' } }
                     foreach ($row in ConvertFrom-NetworkGraphNetIPConfiguration -InputObject $O) { $row.PSObject.TypeNames.Insert(0, 'NetworkGraph.Interface'); $row | Add-Member Source 'Get-NetIPConfiguration -All' -PassThru }
@@ -173,7 +173,7 @@ Describe 'ConvertTo-NetworkGraph' {
         }
 
         It 'a route row with no key borrows the key of the Interface row with the same name' {
-            $route = InModuleScope NetworkGraph { New-NetworkGraphRouteRow -Cidr '192.168.0.0/24' -Interface 'Wi-Fi' }
+            $route = InModuleScope Graph.Emitter.Network { New-NetworkGraphRouteRow -Cidr '192.168.0.0/24' -Interface 'Wi-Fi' }
             $route.PSObject.TypeNames.Insert(0, 'NetworkGraph.Route')
             $route | Add-Member Source 'fixture'
             $graph = @($WinInterfaces) + @($route) | ConvertTo-NetworkGraph -HostName testhost

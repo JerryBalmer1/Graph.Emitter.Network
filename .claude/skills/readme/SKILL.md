@@ -1,6 +1,6 @@
 ---
 name: readme
-description: Keep README.md, the sysadmin door to NetworkGraph, in step with the code. Use whenever a public function, parameter, parameter set, wrapped tool, bundled data file, or Invoke-Build task is added, changed, or removed, and before reporting any task that touched one.
+description: Keep README.md, the sysadmin door to Graph.Emitter.Network, in step with the code. Use whenever a public function, parameter, parameter set, wrapped tool, bundled data file, or Invoke-Build task is added, changed, or removed, and before reporting any task that touched one.
 ---
 
 # README
@@ -33,7 +33,7 @@ If the task touches none of these, leave the file alone.
 
 ## Procedure
 
-1. Read the psd1 `FunctionsToExport` and the parameter blocks of whatever changed. Function code is one function per file, named for the function: `src/NetworkGraph/Public/<Verb-Noun>.ps1` for an exported command, `src/NetworkGraph/Private/<Verb-Noun>.ps1` for a helper. Edit the file named for the function, never `NetworkGraph.psm1`: it is state and wiring only, and `Invoke-Build Assemble` builds the single psm1 that ships.
+1. Read the psd1 `FunctionsToExport` and the parameter blocks of whatever changed. Function code is one function per file, named for the function: `src/Graph.Emitter.Network/Public/<Verb-Noun>.ps1` for an exported command, `src/Graph.Emitter.Network/Private/<Verb-Noun>.ps1` for a helper. Edit the file named for the function, never `Graph.Emitter.Network.psm1`: it is state and wiring only, and `Invoke-Build Assemble` builds the single psm1 that ships.
 2. Edit the matching README section. Run every example you add or change in a fresh `pwsh -NoProfile` process and paste only output you saw.
 3. Check that line 1 is still the `>` callout linking `ONTOLOGY.md`: `Get-Content README.md -TotalCount 1`.
 4. Run `Invoke-Build CheckData` and read the rows that are not Fresh. If the README quotes bundled data that is stale, say so in your report instead of quoting it as current. Follow "Promote or leave" below for each such row.
@@ -52,4 +52,4 @@ Harvests write to the user cache under `$env:LOCALAPPDATA\NetworkGraph\data` (de
 
 - Do not add ontology prose, terminology tables, or the facts/opinions discussion here.
 - Do not put manual checklist items here; link to `manual-check-list.md` by item number if needed.
-- Do not edit the shipped skill (`src/NetworkGraph/skills/networkgraph/SKILL.md`) to mirror README wording; it has its own audience, and changes to it follow the code, not the README.
+- Do not edit the shipped skill (`src/Graph.Emitter.Network/skills/networkgraph/SKILL.md`) to mirror README wording; it has its own audience, and changes to it follow the code, not the README.

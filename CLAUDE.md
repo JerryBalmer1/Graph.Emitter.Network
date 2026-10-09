@@ -1,4 +1,4 @@
-# NetworkGraph
+# Graph.Emitter.Network
 
 PowerShell 7.4+ module: subnet math with cloud reservations, auditable wrappers over the network tools already installed, and a graph of what a host can see. Pure PowerShell: no Go, no C#, no DLL, no bundled binaries of any kind.
 
@@ -28,9 +28,9 @@ README.md                        sysadmin door; README line 1 is a banner linkin
 ONTOLOGY.md                      agent door; banner, then backlink to README (skill ontology-doc)
 docs/graph-shape.md              node and edge contract, and where it came from (TerraformGraph)
 docs/design.md                   design notes and judgement calls
-src/NetworkGraph/
-  NetworkGraph.psd1              FunctionsToExport is the export list, grouped by the three groups
-  NetworkGraph.psm1              module-scope state, type data and wiring only; dot-sources Private/ then Public/
+src/Graph.Emitter.Network/
+  Graph.Emitter.Network.psd1     FunctionsToExport is the export list, grouped by the three groups
+  Graph.Emitter.Network.psm1     module-scope state, type data and wiring only; dot-sources Private/ then Public/
   Public/                        one exported function per file, Verb-Noun.ps1
   Private/                       one helper per file, named for its function
   data/                          json data files, each with a top-level sources array
@@ -75,7 +75,7 @@ Say what was scrubbed in docs/design.md. Pester "no fixture file contains the ca
 
 ## Data, and promote or leave
 
-`src/NetworkGraph/data/` is production. Kinds: CloudReservations and IpSources (written by hand from the pages their sources cite), SpecialUse, CloudRanges (gzip), Oui, Ports (harvested by `Update-NetworkGraphData`). Each file: `formatVersion`, `kind`, `maxAgeDays`, `pulled` (UTC date), `sources`, then the data.
+`src/Graph.Emitter.Network/data/` is production. Kinds: CloudReservations and IpSources (written by hand from the pages their sources cite), SpecialUse, CloudRanges (gzip), Oui, Ports (harvested by `Update-NetworkGraphData`). Each file: `formatVersion`, `kind`, `maxAgeDays`, `pulled` (UTC date), `sources`, then the data.
 
 Harvests write the user cache (`$env:LOCALAPPDATA\NetworkGraph\data`, `$script:NetworkGraphDataUserRoot`), which wins over the bundled copy. Nothing moves into `src/` except through `Invoke-Build UpdateData` (harvest, then copy). When `Invoke-Build CheckData` fails, an agent reports the stale rows and the command, and runs UpdateData only if its task is about that data; otherwise it leaves it. Tests repoint the user root to TestDrive (tests/TestSetup.ps1) and never touch the real cache.
 
@@ -91,7 +91,7 @@ Every parameter with a fixed vocabulary has a ValidateSet (or an ArgumentComplet
 
 ## Manual check list
 
-`manual-check-list.md`: section 0 is setup (0.1 fresh import: version and exported commands; update its Expect whenever the version or exports change). Then one section per area, items numbered `N.M`, append-only: never renumber, mark a removed item "(removed in x.y.z)". Sections 2 to 24 are one exported function each, in FunctionsToExport order; a new function joins or starts a section from 25 on (skill manual-check-list). Each item: one-line purpose, a self-contained code block, run in the shell it is pasted into, whose first line is `Set-Location 'C:\__Code\NetworkGraph'`, then `Remove-Module NetworkGraph` and the import from `src` with `-Force`, an Expect line you have seen yourself (or "not run: needs network" when you could not run it), and a `Pester:` line naming the covering test by its It description (or `Pester: none`). Update "Module version" and "Last updated" at the top. Jerry runs it on Windows. No block uses `pwsh -Command { ... }` (it prints nothing pasted into a console); the fresh process per item came from TerraformGraph, where P/Invoke pins a Go DLL in the process, and this module has no DLL, so `Import-Module -Force` is enough (skill `manual-check-list`).
+`manual-check-list.md`: section 0 is setup (0.1 fresh import: version and exported commands; update its Expect whenever the version or exports change). Then one section per area, items numbered `N.M`, append-only: never renumber, mark a removed item "(removed in x.y.z)". Sections 2 to 24 are one exported function each, in FunctionsToExport order; a new function joins or starts a section from 25 on (skill manual-check-list). Each item: one-line purpose, a self-contained code block, run in the shell it is pasted into, whose first line is `Set-Location 'C:\__Code\Graph.Emitter.Network'`, then `Remove-Module Graph.Emitter.Network` and the import from `src` with `-Force`, an Expect line you have seen yourself (or "not run: needs network" when you could not run it), and a `Pester:` line naming the covering test by its It description (or `Pester: none`). Update "Module version" and "Last updated" at the top. Jerry runs it on Windows. No block uses `pwsh -Command { ... }` (it prints nothing pasted into a console); the fresh process per item came from TerraformGraph, where P/Invoke pins a Go DLL in the process, and this module has no DLL, so `Import-Module -Force` is enough (skill `manual-check-list`).
 
 ## Do not
 

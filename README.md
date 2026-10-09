@@ -1,7 +1,7 @@
 > **Built as an ontology layer for AI agents.** If that is why you are here, read [ONTOLOGY.md](ONTOLOGY.md).
 
 <p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&height=220&section=header&color=0:0B2530,45:12708A,100:2BB3A3&text=NetworkGraph&fontSize=52&fontColor=FFFFFF&fontAlignY=38&desc=Subnet%20math%2C%20the%20network%20tools%20you%20already%20have%2C%20and%20a%20graph%20of%20what%20a%20host%20can%20see&descSize=16&descAlignY=62&animation=fadeIn" alt="NetworkGraph" />
+  <img src="https://capsule-render.vercel.app/api?type=waving&height=220&section=header&color=0:0B2530,45:12708A,100:2BB3A3&text=Graph.Emitter.Network&fontSize=52&fontColor=FFFFFF&fontAlignY=38&desc=Subnet%20math%2C%20the%20network%20tools%20you%20already%20have%2C%20and%20a%20graph%20of%20what%20a%20host%20can%20see&descSize=16&descAlignY=62&animation=fadeIn" alt="Graph.Emitter.Network" />
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@ Subnet math with cloud reservations, auditable wrappers over the network tools a
 **In CI**, one line fails the build when any two subnets in a plan overlap:
 
 ```powershell
-pwsh -NoProfile -Command "Import-Module NetworkGraph; if (Test-SubnetOverlap -Cidr (Get-Content .\subnets.txt) -OverlapOnly) { exit 1 }"
+pwsh -NoProfile -Command "Import-Module Graph.Emitter.Network; if (Test-SubnetOverlap -Cidr (Get-Content .\subnets.txt) -OverlapOnly) { exit 1 }"
 ```
 
 Exit code 0: no two prefixes in `subnets.txt` (one CIDR per line) share an address. Exit code 1: at least one pair overlaps. A line that is not a prefix, or a missing file, is a terminating error, which also exits 1. `Test-SubnetOverlap` is offline: no network, no tool runs.
@@ -31,7 +31,7 @@ There was no PowerShell module that did cloud-aware subnet math and also read th
 
 IPv4 is the v1 target. IPv6 runs through the same code and is tested, but the cloud rules, the examples and the manual checks are IPv4.
 
-Source version **0.2.0**. Not yet published to the PowerShell Gallery: install from a clone (see [Install](#install)).
+Source version **0.3.0**. Not yet published to the PowerShell Gallery: install from a clone (see [Install](#install)).
 
 ---
 
@@ -49,8 +49,8 @@ Source version **0.2.0**. Not yet published to the PowerShell Gallery: install f
 
 ## Downloads & Links
 
-- Homepage: https://github.com/JerryBalmer1/NetworkGraph
-- Release notes: `ReleaseNotes` in [src/NetworkGraph/NetworkGraph.psd1](src/NetworkGraph/NetworkGraph.psd1)
+- Homepage: https://github.com/JerryBalmer1/Graph.Emitter.Network
+- Release notes: `ReleaseNotes` in [src/Graph.Emitter.Network/Graph.Emitter.Network.psd1](src/Graph.Emitter.Network/Graph.Emitter.Network.psd1)
 - Graph contract: [docs/graph-shape.md](docs/graph-shape.md)
 
 ---
@@ -60,17 +60,17 @@ Source version **0.2.0**. Not yet published to the PowerShell Gallery: install f
 From a clone:
 
 ```powershell
-Import-Module .\src\NetworkGraph\NetworkGraph.psd1
+Import-Module .\src\Graph.Emitter.Network\Graph.Emitter.Network.psd1
 ```
 
 <!--
 ### Once on the Gallery
 
-Restore this, and a Gallery badge and link at the top, when NetworkGraph is published:
+Restore this, and a Gallery badge and link at the top, when Graph.Emitter.Network is published:
 
 ```powershell
-Install-Module -Name NetworkGraph -Scope CurrentUser
-Import-Module NetworkGraph
+Install-Module -Name Graph.Emitter.Network -Scope CurrentUser
+Import-Module Graph.Emitter.Network
 ```
 -->
 
@@ -180,9 +180,9 @@ Interface, route and neighbour rows carry `InterfaceKey`, the identifier the gra
 
 Structured output is parsed where the tool offers it (`ip -j`, `mtr --json`, `nmap -oX`, PowerShell objects). Text output (ping, tracert, pathping, traceroute, ss, arp, dig, nslookup, nc, ufw) is read with regular expressions pinned by fixture tests captured from real runs on each platform; English output only. On Linux and macOS native tools run with `LC_ALL=C`; output a parser does not recognise is an error that names `-Tool DotNet`, never an empty or "down" answer. A native tool that exits with a code its command does not expect, or times out, is an error carrying its stderr and command line.
 
-`Invoke-NetworkScan` runs nmap with `-oX - -n -Pn -p` if it is on PATH and otherwise falls back to TCP connect tests (at most 4096 addresses). NetworkGraph bundles no nmap, no scripts folder, and adds no version, OS-detection, timing or evasion flags. Scan only networks you own or are authorised to test.
+`Invoke-NetworkScan` runs nmap with `-oX - -n -Pn -p` if it is on PATH and otherwise falls back to TCP connect tests (at most 4096 addresses). Graph.Emitter.Network bundles no nmap, no scripts folder, and adds no version, OS-detection, timing or evasion flags. Scan only networks you own or are authorised to test.
 
-What a host can and cannot see about routing: it sees its own route table, the hops a trace reveals, and what registries (RDAP) say about an address. It cannot see BGP, the prefixes other networks announce and the paths between them, and NetworkGraph does no BGP lookup. `Asn` on a cloud address is that cloud's primary network; `Get-ExternalIpAddress -Rdap` reports an ASN only when the registry publishes one.
+What a host can and cannot see about routing: it sees its own route table, the hops a trace reveals, and what registries (RDAP) say about an address. It cannot see BGP, the prefixes other networks announce and the paths between them, and Graph.Emitter.Network does no BGP lookup. `Asn` on a cloud address is that cloud's primary network; `Get-ExternalIpAddress -Rdap` reports an ASN only when the registry publishes one.
 
 ### SNMP (Planned)
 
@@ -262,12 +262,12 @@ A command that copies the skill into a repository for each agent tool and report
 ```powershell
 Invoke-Build            # Test: Pester in a fresh process, no network
 Invoke-Build Analyze    # PSScriptAnalyzer
-Invoke-Build Assemble   # one-file module in dist/NetworkGraph/<version>
-Invoke-Build UpdateData # harvest, then promote to src/NetworkGraph/data (network)
+Invoke-Build Assemble   # one-file module in dist/Graph.Emitter.Network/<version>
+Invoke-Build UpdateData # harvest, then promote to src/Graph.Emitter.Network/data (network)
 Invoke-Build CheckData  # every data file sourced and within its maximum age
 ```
 
-Function code is one function per file, named for the function: `src/NetworkGraph/Public/<Verb-Noun>.ps1` for an exported command, `src/NetworkGraph/Private/<Verb-Noun>.ps1` for a helper. Edit the file named for the function, never `NetworkGraph.psm1`: it is state and wiring only, and `Invoke-Build Assemble` builds the single psm1 that ships.
+Function code is one function per file, named for the function: `src/Graph.Emitter.Network/Public/<Verb-Noun>.ps1` for an exported command, `src/Graph.Emitter.Network/Private/<Verb-Noun>.ps1` for a helper. Edit the file named for the function, never `Graph.Emitter.Network.psm1`: it is state and wiring only, and `Invoke-Build Assemble` builds the single psm1 that ships.
 
 Tests never call the network or a real tool unless tagged `Live`: `$env:NETWORKGRAPH_LIVE = 1; Invoke-Pester -Path .\tests -TagFilter Live` runs those. `manual-check-list.md` holds the paste-and-check steps.
 
@@ -277,8 +277,8 @@ This project is independent. It is not affiliated with Microsoft, Amazon Web Ser
 
 ## License
 
-NetworkGraph is licensed under the [Apache License 2.0](LICENSE) ([NOTICE](NOTICE)).
+Graph.Emitter.Network is licensed under the [Apache License 2.0](LICENSE) ([NOTICE](NOTICE)).
 
 <p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&color=0:2BB3A3,55:12708A,100:0B2530&text=NetworkGraph&fontSize=28&fontColor=FFFFFF&fontAlignY=70&animation=fadeIn" alt="" />
+  <img src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&color=0:2BB3A3,55:12708A,100:0B2530&text=Graph.Emitter.Network&fontSize=28&fontColor=FFFFFF&fontAlignY=70&animation=fadeIn" alt="" />
 </p>

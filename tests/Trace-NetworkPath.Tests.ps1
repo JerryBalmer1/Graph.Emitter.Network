@@ -1,7 +1,7 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot 'TestSetup.ps1')
     function ConvertHops([string]$Parser, [string]$Name) {
-        InModuleScope NetworkGraph -Parameters @{ P = $Parser; T = (Get-Fixture $Name) } { param($P, $T) & $P -Text $T }
+        InModuleScope Graph.Emitter.Network -Parameters @{ P = $Parser; T = (Get-Fixture $Name) } { param($P, $T) & $P -Text $T }
     }
 }
 
@@ -31,7 +31,7 @@ Describe 'Trace-NetworkPath' {
         }
 
         It 'a hop where some probes answered keeps its real LossPercent' {
-            $rows = InModuleScope NetworkGraph {
+            $rows = InModuleScope Graph.Emitter.Network {
                 Complete-NetworkGraphHop -Hop @(
                     [pscustomobject]@{ Hop = 1; Ip = '192.0.2.1'; Host = $null; RttMs = @(10, 14); LossPercent = 33.3 }
                     [pscustomobject]@{ Hop = 2; Ip = $null; Host = $null; RttMs = @(); LossPercent = 100 }
@@ -88,7 +88,7 @@ Describe 'Trace-NetworkPath' {
         AfterAll { Clear-NativeFixture }
 
         It 'runs mtr with -NativeTool mtr and names the command in Source' {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'mtr' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'mtr' }
             Set-NativeFixture -Output @{ mtr = (Get-Fixture 'mtr.linux.json') }
             $hops = @(Trace-NetworkPath 1.1.1.1 -NativeTool mtr -Queries 3 -MaxHops 12)
             $hops.Count | Should -Be 2
@@ -98,7 +98,7 @@ Describe 'Trace-NetworkPath' {
         }
 
         It 'runs tracert -d on Windows' {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'tracert' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'tracert' }
             Set-NativeFixture -Output @{ tracert = (Get-Fixture 'tracert.windows.txt') }
             $hops = @(Trace-NetworkPath 1.1.1.1 -MaxHops 12 -Timeout 2000 -Tool Native)
             $hops.Count | Should -Be 7
@@ -108,10 +108,10 @@ Describe 'Trace-NetworkPath' {
 
     Context 'Auto on Windows' {
         BeforeAll {
-            Mock Resolve-NetworkGraphTool -ModuleName NetworkGraph { 'tracert' }
+            Mock Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network { 'tracert' }
             # The .NET trace is replaced, so nothing is sent; its rows are the tracert fixture's.
             $script:DotNetHops = @(ConvertHops 'ConvertFrom-NetworkGraphTracertOutput' 'tracert.windows.txt')
-            Mock Get-NetworkGraphDotNetTrace -ModuleName NetworkGraph { $DotNetHops }
+            Mock Get-NetworkGraphDotNetTrace -ModuleName Graph.Emitter.Network { $DotNetHops }
             Set-NativeFixture -Output @{ tracert = (Get-Fixture 'tracert.windows.txt') }
         }
         AfterAll { Clear-NativeFixture }
@@ -120,8 +120,8 @@ Describe 'Trace-NetworkPath' {
             $hops = @(Trace-NetworkPath 1.1.1.1 -MaxHops 12)
             $hops.Count | Should -Be 7
             $hops[0].Tool | Should -Be 'DotNet'
-            Should -Invoke Get-NetworkGraphDotNetTrace -ModuleName NetworkGraph -Times 1 -Exactly
-            Should -Invoke Resolve-NetworkGraphTool -ModuleName NetworkGraph -Times 0 -Exactly
+            Should -Invoke Get-NetworkGraphDotNetTrace -ModuleName Graph.Emitter.Network -Times 1 -Exactly
+            Should -Invoke Resolve-NetworkGraphTool -ModuleName Graph.Emitter.Network -Times 0 -Exactly
         }
 
         It 'still runs tracert by name with -NativeTool' {
